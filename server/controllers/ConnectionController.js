@@ -227,6 +227,7 @@ class ConnectionController {
 
   testApi(data) {
     const testOpt = this.getApiTestOptions(data);
+    testOpt.url = encodeURI(testOpt.url);
 
     return request(testOpt);
   }
@@ -599,14 +600,14 @@ class ConnectionController {
                   if (!chart.fixedStartDate) {
                     startDate = endDate.clone().subtract(timeDiff, "days").startOf("day");
                   }
-                  queryParams[q] = startDate.format();
+                  queryParams[q] = startDate.format(chart.dateVarsFormat || "");
                 } else if (value === "endDate" && chart.currentEndDate) {
                   const timeDiff = endDate.diff(startDate, "days");
                   endDate = moment.utc().endOf("day");
                   if (!chart.fixedStartDate) {
                     startDate = endDate.clone().subtract(timeDiff, "days").startOf("day");
                   }
-                  queryParams[q] = endDate.format();
+                  queryParams[q] = endDate.format(chart.dateVarsFormat || "");
                 } else {
                   queryParams[q] = chart[value];
                 }
@@ -621,7 +622,7 @@ class ConnectionController {
         }
 
         const options = {
-          url,
+          url: encodeURI(url),
           method: dataRequest.method || "GET",
           headers: {},
           qs: queryParams,

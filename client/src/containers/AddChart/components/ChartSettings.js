@@ -5,7 +5,7 @@ import {
   Text, Input, Dropdown, Tooltip, Modal, Badge,
 } from "@nextui-org/react";
 import {
-  Calendar, ChevronDown, CloseSquare, TickSquare
+  Calendar, ChevronDown, CloseSquare, Setting, TickSquare
 } from "react-iconly";
 import moment from "moment";
 import { DateRangePicker } from "react-date-range";
@@ -80,12 +80,14 @@ function ChartSettings(props) {
   const [min, setMin] = useState("");
   const [ticksNumber, setTicksNumber] = useState("");
   const [ticksSelection, setTicksSelection] = useState("default");
+  const [dateFormattingModal, setDateFormattingModal] = useState(false);
+  const [datesFormat, setDatesFormat] = useState("");
 
   const {
     type, pointRadius, displayLegend,
     endDate, fixedStartDate, currentEndDate, timeInterval,
     includeZeros, startDate, onChange, onComplete,
-    maxValue, minValue, xLabelTicks, stacked,
+    maxValue, minValue, xLabelTicks, stacked, dateVarsFormat, horizontal,
   } = props;
 
   useEffect(() => {
@@ -167,6 +169,10 @@ function ChartSettings(props) {
     onChange({ stacked: !stacked });
   };
 
+  const _onChangeHorizontal = () => {
+    onChange({ horizontal: !horizontal });
+  };
+
   const _onChangeDateRange = (range) => {
     const { startDate, endDate } = range.selection;
     setDateRange({ startDate, endDate });
@@ -196,6 +202,11 @@ function ChartSettings(props) {
 
   const _onConfirmTicksNumber = () => {
     onChange({ xLabelTicks: `${ticksNumber}` });
+  };
+
+  const _onChangeDateFormat = () => {
+    onChange({ dateVarsFormat: datesFormat });
+    setDateFormattingModal(false);
   };
 
   return (
@@ -229,7 +240,7 @@ function ChartSettings(props) {
       <Spacer y={0.5} />
       <Row>
         <Grid.Container gap={1}>
-          <Grid xs={12} sm={6} md={6} alignItems="center">
+          <Grid xs={12} sm={12} md={6} alignItems="center">
             <div>
               <Container css={{ ml: 0, pl: 0 }}>
                 <Row css={{ ml: 0, pl: 0 }} align="center">
@@ -252,9 +263,21 @@ function ChartSettings(props) {
                       />
                     </Tooltip>
                   )}
+                  {startDate && endDate && (
+                    <Tooltip content="Date formatting">
+                      <Button
+                        light
+                        icon={<Setting />}
+                        onClick={() => setDateFormattingModal(true)}
+                        auto
+                        size="xs"
+                        css={{ minWidth: "fit-content" }}
+                      />
+                    </Tooltip>
+                  )}
                 </Row>
               </Container>
-              <div style={{ marginTop: 5 }}>
+              <Row style={{ marginTop: 5 }} align="center">
                 {startDate && (
                   <Badge color="secondary" size="sm">
                     <Link onClick={() => setDateRangeModal(true)} css={{ color: "$accents0" }}>
@@ -262,7 +285,9 @@ function ChartSettings(props) {
                     </Link>
                   </Badge>
                 )}
+                <Spacer x={0.3} />
                 {startDate && (<span> to </span>)}
+                <Spacer x={0.3} />
                 {endDate && (
                   <Badge color="secondary" size="sm">
                     <Link onClick={() => setDateRangeModal(true)} css={{ color: "$accents0" }}>
@@ -270,10 +295,10 @@ function ChartSettings(props) {
                     </Link>
                   </Badge>
                 )}
-              </div>
+              </Row>
             </div>
           </Grid>
-          <Grid xs={12} sm={6} md={6} direction="column">
+          <Grid xs={12} sm={12} md={6} direction="column">
             <Checkbox
               isSelected={currentEndDate}
               isDisabled={!dateRange.endDate}
@@ -342,7 +367,7 @@ function ChartSettings(props) {
       <Spacer y={0.5} />
 
       <Grid.Container gap={1}>
-        <Grid xs={12} sm={6} md={6}>
+        <Grid xs={12} sm={6} md={6} direction="column">
           {type === "line"
             && (
               <Checkbox
@@ -366,6 +391,16 @@ function ChartSettings(props) {
               size="sm"
             >
               Stack datasets
+            </Checkbox>
+          )}
+          <Spacer y={0.5} />
+          {type === "bar" && (
+            <Checkbox
+              isSelected={horizontal}
+              onChange={_onChangeHorizontal}
+              size="sm"
+            >
+              Horizontal bars
             </Checkbox>
           )}
         </Grid>
@@ -568,6 +603,116 @@ function ChartSettings(props) {
           </Button>
         </Modal.Footer>
       </Modal>
+
+      <Modal open={dateFormattingModal} onClose={() => setDateFormattingModal(false)} width="600px">
+        <Modal.Header>
+          <Text h3>Set a custom format for your dates</Text>
+        </Modal.Header>
+        <Modal.Body>
+          <Container>
+            <Row>
+              <Text>
+                {"Chartbrew will use this format when injecting the dates as variables in your queries. The variables are"}
+                {" "}
+                <code>{"{{start_date}}"}</code>
+                {" "}
+                {"and"}
+                {" "}
+                <code>{"{{end_date}}"}</code>
+                {"."}
+              </Text>
+            </Row>
+            <Spacer y={2} />
+            <Row>
+              <Input
+                labelPlaceholder="Enter a date format"
+                initialValue={dateVarsFormat}
+                value={datesFormat || dateVarsFormat}
+                onChange={(e) => setDatesFormat(e.target.value)}
+                bordered
+                fullWidth
+              />
+            </Row>
+            <Spacer y={0.5} />
+            <Row wrap="wrap">
+              <Button
+                color="primary"
+                size="xs"
+                onClick={() => setDatesFormat("YYYY-MM-DD")}
+                auto
+                css={{ marginBottom: 5 }}
+                bordered
+              >
+                {"YYYY-MM-DD"}
+              </Button>
+              <Spacer x={0.3} />
+              <Button
+                color="primary"
+                size="xs"
+                disableOutline
+                onClick={() => setDatesFormat("YYYY-MM-DD HH:mm:ss")}
+                auto
+                bordered
+              >
+                {"YYYY-MM-DD HH:mm:ss"}
+              </Button>
+              <Spacer x={0.3} />
+              <Button
+                color="primary"
+                size="xs"
+                disableOutline
+                onClick={() => setDatesFormat("X")}
+                auto
+                bordered
+              >
+                {"Timestamp (in seconds)"}
+              </Button>
+              <Spacer x={0.3} />
+              <Button
+                color="primary"
+                size="xs"
+                disableOutline
+                onClick={() => setDatesFormat("x")}
+                auto
+                bordered
+              >
+                {"Timestamp (in ms)"}
+              </Button>
+            </Row>
+            <Spacer y={0.5} />
+            <Row>
+              <Text small>
+                {"See "}
+                <a
+                  href="https://momentjs.com/docs/#/displaying/format/"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {"moment.js documentation"}
+                </a>
+                {" for how to format dates."}
+              </Text>
+            </Row>
+          </Container>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            flat
+            color="warning"
+            onClick={() => setDateFormattingModal(false)}
+            auto
+          >
+            Cancel
+          </Button>
+          <Button
+            iconRight={<TickSquare />}
+            onClick={_onChangeDateFormat}
+            auto
+          >
+            Apply date format
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </Container>
   );
 }
@@ -587,6 +732,8 @@ ChartSettings.defaultProps = {
   minValue: null,
   xLabelTicks: "",
   stacked: false,
+  horizontal: false,
+  dateVarsFormat: "",
 };
 
 ChartSettings.propTypes = {
@@ -605,6 +752,8 @@ ChartSettings.propTypes = {
   minValue: PropTypes.number,
   xLabelTicks: PropTypes.number,
   stacked: PropTypes.bool,
+  horizontal: PropTypes.bool,
+  dateVarsFormat: PropTypes.string,
 };
 
 export default ChartSettings;

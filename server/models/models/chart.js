@@ -73,6 +73,9 @@ module.exports = (sequelize, DataTypes) => {
     endDate: {
       type: DataTypes.DATE,
     },
+    dateVarsFormat: {
+      type: DataTypes.STRING,
+    },
     includeZeros: {
       type: DataTypes.BOOLEAN,
       allowNull: false,
@@ -128,6 +131,10 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: "default",
     },
     stacked: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    horizontal: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
     },

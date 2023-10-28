@@ -349,7 +349,9 @@ class ChartController {
             );
           } else {
             requestPromises.push(
-              this.datasetController.runRequest(dataset.id, gChart.id, false, getCache)
+              this.datasetController.runRequest(
+                dataset.id, gChart.id, false, getCache, filters, project.timezone
+              )
             );
           }
           return dataset;
@@ -435,7 +437,13 @@ class ChartController {
         }
 
         await Promise.all(datasetsPromises);
-        return this.update(id, { chartData: chartData.configuration, chartDataUpdated: moment() });
+
+        const updateData = { chartData: chartData.configuration };
+        if (!getCache) {
+          updateData.chartDataUpdated = moment();
+        }
+
+        return this.update(id, updateData);
       })
       .then(() => {
         if (filters && !isExport) {
@@ -557,7 +565,7 @@ class ChartController {
       .then((connection) => {
         if (connection.type === "mongodb") {
           return this.testMongoQuery(chart, projectId);
-        } else if (connection.type === "postgres" || connection.type === "mysql" || connection.type === "timescaledb") {
+        } else if (connection.type === "postgres" || connection.type === "mysql") {
           return this.getPostgresData(chart, projectId, connection);
         } else {
           return new Promise((resolve, reject) => reject("The connection type is not supported"));
@@ -609,7 +617,7 @@ class ChartController {
           return this.testQuery(chart, projectId);
         } else if (connection.type === "api") {
           return this.getApiChartData(chart, projectId);
-        } else if (connection.type === "postgres" || connection.type === "mysql" || connection.type === "timescaledb") {
+        } else if (connection.type === "postgres" || connection.type === "mysql") {
           return this.getPostgresData(chart, projectId, connection);
         } else {
           return new Promise((resolve, reject) => reject("The connection type is not supported"));

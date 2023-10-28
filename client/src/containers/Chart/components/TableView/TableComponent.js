@@ -58,6 +58,7 @@ function TableComponent(props) {
             {...getTableProps()}
             shadow={false}
             lined
+            sticked
           >
             <Table.Header>
               {headerGroups[headerGroups.length - 1].headers.map((column) => {
@@ -97,7 +98,7 @@ function TableComponent(props) {
                 prepareRow(row);
                 return (
                   <Table.Row {...row.getRowProps()}>
-                    {row.cells.map((cell) => {
+                    {row.cells.map((cell, cellIndex) => {
                       // identify collections to render them differently
                       const cellObj = cell.render("Cell");
                       // console.log("cellObj.key", cellObj.props.column.Header);
@@ -119,8 +120,7 @@ function TableComponent(props) {
                             maxWidth: 300,
                             pr: 10,
                             pl: 10,
-                            borderBottom: "$accents3 solid 1px",
-                            borderRight: "$accents3 solid 1px",
+                            borderRight: cellIndex === row.cells.length - 1 ? "none" : "$accents3 solid 1px",
                           }}
                         >
                           {(!isObject && !isArray) && (
@@ -165,7 +165,7 @@ function TableComponent(props) {
                 size="sm"
               />
               <Spacer x={0.5} />
-              <Dropdown>
+              <Dropdown isBordered>
                 <Dropdown.Button bordered size="sm">
                   {paginationOptions.find((option) => option.value === pageSize).text}
                 </Dropdown.Button>

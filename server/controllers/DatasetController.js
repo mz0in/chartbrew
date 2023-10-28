@@ -158,13 +158,13 @@ class DatasetController {
       });
   }
 
-  runRequest(id, chartId, noSource, getCache) {
+  runRequest(id, chartId, noSource, getCache, filters, timezone) {
     let gDataset;
     let mainDr;
     return db.Dataset.findOne({
       where: { id },
       include: [
-        { model: db.DataRequest, include: [{ model: db.Connection, attributes: ["id", "name", "type", "host"] }] },
+        { model: db.DataRequest, include: [{ model: db.Connection, attributes: ["id", "name", "type", "subType", "host"] }] },
       ],
     })
       .then((dataset) => {
@@ -231,10 +231,10 @@ class DatasetController {
           } else if (connection.type === "api") {
             drPromises.push(
               this.connectionController.runApiRequest(
-                connection.id, chartId, dataRequest, getCache,
+                connection.id, chartId, dataRequest, getCache, filters, timezone,
               )
             );
-          } else if (connection.type === "postgres" || connection.type === "mysql" || connection.type === "timescaledb") {
+          } else if (connection.type === "postgres" || connection.type === "mysql") {
             drPromises.push(
               this.connectionController.runMysqlOrPostgres(connection.id, dataRequest, getCache)
             );

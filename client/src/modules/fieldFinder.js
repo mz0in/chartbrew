@@ -2,42 +2,66 @@ import _ from "lodash";
 
 import determineType from "./determineType";
 
-function findFields(coll, currentKey, first, fields) {
+const maxIterations = 20;
+
+function findFields(coll, currentKey, first, fields, onlyObjects) {
   let newFields = fields;
   if (!coll) return newFields;
   if (Object.keys(coll).length === 0) return newFields;
+
+  // check if coll is a string and if so, don't iterate over it and return it as an array
+  if (typeof coll === "string") {
+    if (!newFields.find((f) => f.field === currentKey)) {
+      newFields.push({
+        field: currentKey.substring(0, currentKey.lastIndexOf("[]")),
+        value: coll,
+        type: "array",
+      });
+    }
+    return newFields;
+  }
+
+  if (determineType(coll) === "array" && onlyObjects) {
+    return newFields;
+  }
 
   Object.keys(coll).forEach((field) => {
     const data = coll[field];
     let newKey = field;
     if (currentKey) {
       newKey = `${currentKey}.${field}`;
-      if (first) {
+      if (first && !onlyObjects) {
         newKey = `root.${currentKey}[].${field}`;
       }
 
       const fieldType = determineType(coll[field]);
-      newFields.push({
-        field: newKey,
-        value: coll[field],
-        type: fieldType,
-      });
+      const existingField = newFields.find((f) => f.field === newKey);
+      if (!existingField || !existingField.type) {
+        newFields.push({
+          field: newKey,
+          value: coll[field],
+          type: fieldType,
+        });
+      }
 
       // include fields from a nested array (2 levels max!)
-      if (fieldType === "array" && newKey.split("[]").length < 3) {
+      if (fieldType === "array" && newKey.split("[]").length < 3 && !onlyObjects) {
         return findFields(coll[field][0], `${newKey}[]`, false, newFields);
       }
     } else {
-      if (first) newKey = `root[].${newKey}`;
+      if (first && !onlyObjects) newKey = `root[].${newKey}`;
+      else if (first && onlyObjects && `${newKey}` !== `${parseInt(newKey, 10)}`) newKey = `root.${newKey}`;
       const fieldType = determineType(coll[field]);
-      newFields.push({
-        field: newKey,
-        value: coll[field],
-        type: fieldType,
-      });
+      if (!newFields.find((f) => f.field === newKey)) {
+        newFields.push({
+          field: newKey,
+          value: coll[field],
+          type: fieldType,
+        });
+      }
 
       // include fields from a nested array (2 levels max!)
-      if (fieldType === "array" && newKey.split("[]").length < 3) {
+      if (fieldType === "array" && newKey.split("[]").length < 3 && !onlyObjects) {
         return findFields(coll[field][0], `${newKey}[]`, false, newFields);
       }
     }
@@ -52,12 +76,17 @@ function findFields(coll, currentKey, first, fields) {
   return newFields;
 }
 
-export default function init(collection, checkObjects) {
+export default function init(collection, checkObjects, onlyObjects) {
   let fields = [];
   const explorationSet = [];
 
   if (checkObjects) {
     fields = findFields(collection, "", true, fields);
+    return fields;
+  }
+
+  if (onlyObjects) {
+    fields = findFields(collection, "", true, fields, true);
     return fields;
   }
 
@@ -76,8 +105,8 @@ export default function init(collection, checkObjects) {
   if (explorationSet.length > 0) {
     const multiFields = [];
     for (let i = 0; i < explorationSet.length; i++) {
-      const iterations = collection[explorationSet[i].field].length < 10
-        ? collection[explorationSet[i].field].length : 10;
+      const iterations = collection[explorationSet[i].field].length < maxIterations
+        ? collection[explorationSet[i].field].length : maxIterations;
       for (let j = 0; j < iterations; j++) {
         multiFields.push(findFields(
           collection[explorationSet[i].field][j],
@@ -96,7 +125,7 @@ export default function init(collection, checkObjects) {
       });
     });
   } else {
-    const iterations = collection.length < 10 ? collection.length : 10;
+    const iterations = collection.length < maxIterations ? collection.length : maxIterations;
     const multiFields = [];
     for (let i = 0; i < iterations; i++) {
       multiFields.push(findFields(collection[i], "", true, []));
@@ -106,6 +135,10 @@ export default function init(collection, checkObjects) {
       m.forEach((f) => {
         if (_.findIndex(fields, { field: f.field }) === -1) {
           fields.push(f);
+        } else if (_.findIndex(fields, { field: f.field, type: undefined }) > -1) {
+          // if the field is found, but its type is undefined, then set it
+          const index = _.findIndex(fields, { field: f.field, type: undefined });
+          fields[index].type = f.type;
         }
       });
     });

@@ -294,7 +294,11 @@ function DatarequestModal(props) {
                   <Avatar
                     bordered
                     squared
-                    src={dr.Connection ? connectionImages(isDark)[dr.Connection.type] : null}
+                    src={
+                      dr.Connection
+                        ? connectionImages(isDark)[dr.Connection.subType || dr.Connection.type]
+                        : null
+                    }
                     icon={!dr.Connection ? <Danger /> : null}
                     size="lg"
                     color={dr.id === selectedRequest?.id ? "primary" : "default"}
@@ -336,6 +340,7 @@ function DatarequestModal(props) {
             <Grid xs={12} sm={11}>
               <DatarequestSettings
                 dataset={dataset}
+                dataRequests={dataRequests}
                 onChange={_onUpdateDataset}
               />
             </Grid>
@@ -354,7 +359,7 @@ function DatarequestModal(props) {
                       onDelete={() => _onDeleteRequest(dr.id)}
                     />
                   )}
-                  {(selectedRequest.Connection.type === "mysql" || selectedRequest.Connection.type === "postgres" || selectedRequest.Connection.type === "timescaledb") && selectedRequest.id === dr.id && (
+                  {(selectedRequest.Connection.type === "mysql" || selectedRequest.Connection.type === "postgres") && selectedRequest.id === dr.id && (
                     <SqlBuilder
                       dataRequest={dr}
                       connection={dr.Connection}
@@ -437,7 +442,7 @@ function DatarequestModal(props) {
                               <Spacer x={0.2} />
                               <Avatar
                                 squared
-                                src={connectionImages(isDark)[c.type]}
+                                src={connectionImages(isDark)[c.subType || c.type]}
                                 alt={`${c.type} logo`}
                               />
                             </Row>

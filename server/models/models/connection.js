@@ -40,13 +40,16 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: false,
     },
+    subType: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
     active: {
       type: DataTypes.BOOLEAN,
       defaultValue: true,
     },
-
     host: {
-      type: DataTypes.STRING,
+      type: DataTypes.TEXT,
       set(val) {
         if (!val) return val;
         return this.setDataValue("host", sc.encrypt(val));

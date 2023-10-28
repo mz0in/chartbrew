@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import PropTypes from "prop-types";
 import { Bar } from "react-chartjs-2";
+import ChartDataLabels from "chartjs-plugin-datalabels";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -56,10 +57,46 @@ function BarChart(props) {
       if (newOptions.plugins?.legend?.labels) {
         newOptions.plugins.legend.labels.color = theme.colors.accents9.value;
       }
+
       return newOptions;
     }
 
     return chart.chartData?.options;
+  };
+
+  const _getDatalabelsOptions = () => {
+    return {
+      font: {
+        weight: "bold",
+        size: 10,
+        family: "Inter",
+        color: "white"
+      },
+      padding: 4,
+      // backgroundColor(context) {
+      //   if (context.dataset.backgroundColor === "transparent"
+      //     || context.dataset.backgroundColor === "rgba(0,0,0,0)"
+      //   ) {
+      //     return context.dataset.borderColor;
+      //   }
+      //   return context.dataset.backgroundColor;
+      // },
+      borderRadius: 4,
+      // color: theme.colors.accents5.value,
+      formatter: Math.round,
+    };
+  };
+
+  const _getChartData = () => {
+    if (!chart?.chartData?.data?.datasets) return chart.chartData.data;
+
+    chart.chartData.data?.datasets?.forEach((dataset, index) => {
+      if (dataset?.datalabels && index === chart.chartData.data.datasets.length - 1) {
+        chart.chartData.data.datasets[index].datalabels.color = theme.colors.accents8.value;
+      }
+    });
+
+    return chart.chartData.data;
   };
 
   return (
@@ -81,8 +118,14 @@ function BarChart(props) {
             <div>
               <ChartErrorBoundary>
                 <Bar
-                  data={chart.chartData.data}
-                  options={_getChartOptions()}
+                  data={_getChartData()}
+                  options={{
+                    ..._getChartOptions(),
+                    plugins: {
+                      ..._getChartOptions().plugins,
+                      datalabels: chart.dataLabels && _getDatalabelsOptions(),
+                    },
+                  }}
                   height={
                     height - (
                       (chart.mode === "kpichart" && chart.chartSize > 1 && 80)
@@ -91,6 +134,7 @@ function BarChart(props) {
                     )
                   }
                   redraw={redraw}
+                  plugins={chart.dataLabels ? [ChartDataLabels] : []}
                 />
               </ChartErrorBoundary>
             </div>

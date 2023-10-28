@@ -100,7 +100,7 @@ function ChartFilters(props) {
                         <Spacer y={0.2} />
                         <div style={{ display: "flex", alignItems: "center" }}>
                           {condition.type !== "date" && !condition.hideValues && (
-                            <Dropdown>
+                            <Dropdown isBordered>
                               <Dropdown.Trigger type="text">
                                 <Input
                                   type="text"
@@ -141,6 +141,7 @@ function ChartFilters(props) {
                                   });
                                 }}
                                 selectionMode="single"
+                                css={{ minWidth: "max-content" }}
                               >
                                 {_getFilteredOptions(filterOptions, condition.id).map((opt) => (
                                   <Dropdown.Item key={opt.value}>

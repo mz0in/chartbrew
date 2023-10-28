@@ -5,7 +5,7 @@ import {
   Text, Input, Dropdown, Tooltip, Modal, Badge,
 } from "@nextui-org/react";
 import {
-  Calendar, ChevronDown, CloseSquare, Setting, TickSquare
+  Calendar, ChevronDown, CloseSquare, InfoCircle, Setting, TickSquare
 } from "react-iconly";
 import moment from "moment";
 import { DateRangePicker } from "react-date-range";
@@ -81,13 +81,14 @@ function ChartSettings(props) {
   const [ticksNumber, setTicksNumber] = useState("");
   const [ticksSelection, setTicksSelection] = useState("default");
   const [dateFormattingModal, setDateFormattingModal] = useState(false);
-  const [datesFormat, setDatesFormat] = useState("");
+  const [datesFormat, setDatesFormat] = useState(null);
 
   const {
     type, pointRadius, displayLegend,
     endDate, fixedStartDate, currentEndDate, timeInterval,
     includeZeros, startDate, onChange, onComplete,
     maxValue, minValue, xLabelTicks, stacked, dateVarsFormat, horizontal,
+    dataLabels,
   } = props;
 
   useEffect(() => {
@@ -113,6 +114,9 @@ function ChartSettings(props) {
 
   useEffect(() => {
     setDateRange({ startDate, endDate });
+    if (dateVarsFormat) {
+      setDatesFormat(dateVarsFormat);
+    }
   }, [startDate, endDate]);
 
   useEffect(() => {
@@ -130,12 +134,13 @@ function ChartSettings(props) {
     if (startDate && endDate) {
       let newStartDate = moment(startDate);
       let newEndDate = moment(endDate);
+
       if (currentEndDate) {
-        const timeDiff = newEndDate.diff(newStartDate, "days");
-        newEndDate = moment();
+        const timeDiff = newEndDate.diff(newStartDate, timeInterval);
+        newEndDate = moment().utcOffset(0, true).endOf(timeInterval);
 
         if (!fixedStartDate) {
-          newStartDate = newEndDate.clone().subtract(timeDiff, "days");
+          newStartDate = newEndDate.clone().subtract(timeDiff, timeInterval).startOf(timeInterval);
         }
       }
 
@@ -180,6 +185,7 @@ function ChartSettings(props) {
 
   const _onComplete = () => {
     const { startDate, endDate } = dateRange;
+
     onChange({
       dateRange: {
         startDate: moment(startDate).utcOffset(0, true).format(),
@@ -307,7 +313,41 @@ function ChartSettings(props) {
               }}
               size="sm"
             >
-              Make the date range relative to present
+              Auto-update the date range
+              <Spacer x={0.3} />
+              <Tooltip
+                content={(
+                  <div style={{ padding: 5 }}>
+                    <Text>
+                      {"When this is enabled, the end date will be automatically updated to the current date and the date range length will be preserved."}
+                    </Text>
+                    <Spacer y={0.3} />
+                    <Text>
+                      {"This option takes into account the date interval as well."}
+                    </Text>
+                    <Spacer y={0.3} />
+                    <ul>
+                      <li>
+                        <Text>
+                          {"Daily interval: the end date will be the end of the present day"}
+                        </Text>
+                      </li>
+                      <li>
+                        <Text>
+                          {"Weekly interval: the end date will be the end of the present week"}
+                        </Text>
+                      </li>
+                      <li>
+                        <Text>
+                          {"Monthly interval: the end date will be the end of the present month"}
+                        </Text>
+                      </li>
+                    </ul>
+                  </div>
+                )}
+              >
+                <InfoCircle set="light" size="small" />
+              </Tooltip>
             </Checkbox>
             <Spacer y={0.5} />
             <Checkbox
@@ -326,7 +366,7 @@ function ChartSettings(props) {
       <Spacer y={0.5} />
       <Grid.Container gap={1}>
         <Grid xs={12} sm={6} md={6}>
-          <Dropdown>
+          <Dropdown isBordered>
             <Dropdown.Trigger>
               <Input
                 placeholder="Select the frequency"
@@ -367,24 +407,25 @@ function ChartSettings(props) {
       <Spacer y={0.5} />
 
       <Grid.Container gap={1}>
-        <Grid xs={12} sm={6} md={6} direction="column">
-          {type === "line"
-            && (
-              <Checkbox
-                isSelected={pointRadius > 0}
-                onChange={() => {
-                  if (pointRadius > 0) {
-                    _onAddPoints(0);
-                  } else {
-                    _onAddPoints(3);
-                  }
-                }}
-                size="sm"
-              >
-                Data points
-              </Checkbox>
-            )}
-          {type === "bar" && (
+        {type === "line" && (
+          <Grid xs={12} sm={6} md={6}>
+            <Checkbox
+              isSelected={pointRadius > 0}
+              onChange={() => {
+                if (pointRadius > 0) {
+                  _onAddPoints(0);
+                } else {
+                  _onAddPoints(3);
+                }
+              }}
+              size="sm"
+            >
+              Data points
+            </Checkbox>
+          </Grid>
+        )}
+        {type === "bar" && (
+          <Grid xs={12} sm={6} md={6}>
             <Checkbox
               isSelected={stacked}
               onChange={_onChangeStacked}
@@ -392,9 +433,10 @@ function ChartSettings(props) {
             >
               Stack datasets
             </Checkbox>
-          )}
-          <Spacer y={0.5} />
-          {type === "bar" && (
+          </Grid>
+        )}
+        {type === "bar" && (
+          <Grid xs={12} sm={6} md={6}>
             <Checkbox
               isSelected={horizontal}
               onChange={_onChangeHorizontal}
@@ -402,8 +444,8 @@ function ChartSettings(props) {
             >
               Horizontal bars
             </Checkbox>
-          )}
-        </Grid>
+          </Grid>
+        )}
         <Grid xs={12} sm={6} md={6}>
           <Checkbox
             isSelected={displayLegend}
@@ -411,6 +453,15 @@ function ChartSettings(props) {
             size="sm"
           >
             Legend
+          </Checkbox>
+        </Grid>
+        <Grid xs={12} sm={6} md={6}>
+          <Checkbox
+            isSelected={dataLabels}
+            onChange={() => onChange({ dataLabels: !dataLabels })}
+            size="sm"
+          >
+            Data labels
           </Checkbox>
         </Grid>
       </Grid.Container>
@@ -504,7 +555,7 @@ function ChartSettings(props) {
 
       <Grid.Container gap={1}>
         <Grid xs={12} sm={12} md={12}>
-          <Dropdown>
+          <Dropdown isBordered>
             <Dropdown.Trigger>
               <Input
                 label="Number of labels on the X Axis"
@@ -566,6 +617,16 @@ function ChartSettings(props) {
         </Modal.Header>
         <Modal.Body>
           <Container>
+            {currentEndDate && (
+              <>
+                <Row>
+                  <Text>
+                    {"The date range is set to auto-update to the current date. If you want to set an exact custom date range, disable the auto-update option."}
+                  </Text>
+                </Row>
+                <Spacer y={0.5} />
+              </>
+            )}
             <Row justify="center">
               <DateRangePicker
                 locale={enGB}
@@ -627,7 +688,7 @@ function ChartSettings(props) {
               <Input
                 labelPlaceholder="Enter a date format"
                 initialValue={dateVarsFormat}
-                value={datesFormat || dateVarsFormat}
+                value={datesFormat}
                 onChange={(e) => setDatesFormat(e.target.value)}
                 bordered
                 fullWidth
@@ -734,6 +795,7 @@ ChartSettings.defaultProps = {
   stacked: false,
   horizontal: false,
   dateVarsFormat: "",
+  dataLabels: false,
 };
 
 ChartSettings.propTypes = {
@@ -754,6 +816,7 @@ ChartSettings.propTypes = {
   stacked: PropTypes.bool,
   horizontal: PropTypes.bool,
   dateVarsFormat: PropTypes.string,
+  dataLabels: PropTypes.bool,
 };
 
 export default ChartSettings;

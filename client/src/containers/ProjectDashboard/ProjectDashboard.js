@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Fragment } from "react";
 import PropTypes from "prop-types";
 import { connect } from "react-redux";
 import { withRouter } from "react-router";
 import {
   Container, Row, Button, Loading, Spacer, Text, Link as LinkNext, Tooltip, Grid,
-  Card, Modal, useTheme,
+  Card, Modal, useTheme, Badge,
 } from "@nextui-org/react";
 import { Link } from "react-router-dom";
 import { useWindowSize } from "react-use";
@@ -16,6 +16,7 @@ import {
   CloseSquare, Filter2, Image2, PaperDownload, Play, Plus, Scan
 } from "react-iconly";
 import { HiRefresh } from "react-icons/hi";
+import moment from "moment";
 
 import Chart from "../Chart/Chart";
 import { cleanErrors as cleanErrorsAction } from "../../actions/error";
@@ -32,7 +33,6 @@ import {
 import canAccess from "../../config/canAccess";
 import ChartExport from "./components/ChartExport";
 import CreateTemplateForm from "../../components/CreateTemplateForm";
-import Badge from "../../components/Badge";
 
 const breakpoints = {
   mobile: 0,
@@ -53,6 +53,15 @@ const getFiltersFromStorage = () => {
   }
 };
 
+const getFilterGroupsFromStorage = () => {
+  try {
+    const filterGroups = JSON.parse(window.localStorage.getItem("_cb_filter_groups"));
+    return filterGroups || null;
+  } catch (e) {
+    return null;
+  }
+};
+
 /*
   Dashboard container (for the charts)
 */
@@ -63,6 +72,7 @@ function ProjectDashboard(props) {
   } = props;
 
   const [filters, setFilters] = useState(getFiltersFromStorage());
+  const [filterGroups, setFilterGroups] = useState(getFilterGroupsFromStorage());
   const [showFilters, setShowFilters] = useState(false);
   const [filterLoading, setFilterLoading] = useState(false);
   const [refreshLoading, setRefreshLoading] = useState(false);
@@ -84,14 +94,36 @@ function ProjectDashboard(props) {
     }
   }, [filters]);
 
+  const _onEditFilterGroup = (chartId) => {
+    const { projectId } = match.params;
+    const newFilterGroups = _.clone(filterGroups) || {};
+    if (!newFilterGroups[projectId]) newFilterGroups[projectId] = [];
+
+    if (newFilterGroups[projectId].find((c) => c === chartId)) {
+      newFilterGroups[projectId] = newFilterGroups[projectId].filter((c) => c !== chartId);
+    } else {
+      newFilterGroups[projectId].push(chartId);
+    }
+
+    setFilterGroups(newFilterGroups);
+    window.localStorage.setItem("_cb_filter_groups", JSON.stringify(newFilterGroups));
+  };
+
   const _onAddFilter = (filter) => {
     const { projectId } = match.params;
 
     const newFilters = _.clone(filters) || {};
     if (!newFilters[projectId]) newFilters[projectId] = [];
+
+    if (filter.type === "date") {
+      newFilters[projectId] = newFilters[projectId].filter((f) => f.type !== "date");
+    }
+
     newFilters[projectId].push(filter);
     setFilters(newFilters);
+
     window.localStorage.setItem("_cb_filters", JSON.stringify(newFilters));
+
     setShowFilters(false);
   };
 
@@ -123,6 +155,25 @@ function ProjectDashboard(props) {
     }, 500);
   };
 
+  const _throttleRefreshes = (refreshes, index) => {
+    if (index >= refreshes.length) return Promise.resolve("done");
+
+    return runQuery(
+      refreshes[index].projectId,
+      refreshes[index].chartId,
+      false,
+      false,
+      false,
+      refreshes[index].dateFilter
+    )
+      .then(() => {
+        return _throttleRefreshes(refreshes, index + 1);
+      })
+      .catch(() => {
+        return _throttleRefreshes(refreshes, index + 1);
+      });
+  };
+
   const _onFilterCharts = (currentFilters = filters) => {
     const { projectId } = match.params;
 
@@ -133,6 +184,7 @@ function ProjectDashboard(props) {
     }
 
     const refreshPromises = [];
+    const queries = [];
     for (let i = 0; i < charts.length; i++) {
       if (currentFilters && currentFilters[projectId]) {
         setFilterLoading(true);
@@ -142,27 +194,33 @@ function ProjectDashboard(props) {
             runQueryWithFilters(projectId, charts[i].id, currentFilters[projectId])
           );
         }
+
+        if (currentFilters?.[projectId]?.length > 0
+          && currentFilters?.[projectId]?.find((o) => o.type === "date")
+          && filterGroups?.[projectId]?.find((c) => c === charts[i].id)
+        ) {
+          queries.push({
+            projectId,
+            chartId: charts[i].id,
+            dateFilter: currentFilters?.[projectId]?.find((o) => o.type === "date"),
+          });
+        }
       }
     }
 
     return Promise.all(refreshPromises)
       .then(() => {
-        setFilterLoading(false);
+        if (queries.length > 0) {
+          return _throttleRefreshes(queries, 0);
+        }
+
+        return "done";
       })
-      .catch(() => {
-        setFilterLoading(false);
-      });
-  };
-
-  const _throttleRefreshes = (refreshes, index) => {
-    if (index >= refreshes.length) return Promise.resolve("done");
-
-    return runQuery(refreshes[index].projectId, refreshes[index].chartId)
       .then(() => {
-        return _throttleRefreshes(refreshes, index + 1);
+        setFilterLoading(false);
       })
       .catch(() => {
-        return _throttleRefreshes(refreshes, index + 1);
+        setFilterLoading(false);
       });
   };
 
@@ -172,15 +230,23 @@ function ProjectDashboard(props) {
     const queries = [];
     setRefreshLoading(true);
     for (let i = 0; i < charts.length; i++) {
-      queries.push({
+      const queryOpt = {
         projectId,
-        chartId: charts[i].id
-      });
+        chartId: charts[i].id,
+      };
+      if (filterGroups?.[projectId]?.find((c) => c === charts[i].id)) {
+        queryOpt.dateFilter = filters?.[projectId]?.find((o) => o.type === "date");
+      }
+
+      queries.push(queryOpt);
     }
 
     return _throttleRefreshes(queries, 0)
       .then(() => {
-        if (filters && filters[projectId]) {
+        if (filters && filters[projectId]
+          && filters[projectId].length > 0
+          && filters[projectId].find((o) => o.type !== "date")
+        ) {
           _onFilterCharts();
         }
         setRefreshLoading(false);
@@ -301,14 +367,14 @@ function ProjectDashboard(props) {
                   <Media greaterThan="mobile">
                     <Button
                       ghost
-                      iconRight={<Filter2 size="small" />}
+                      iconRight={!filterLoading ? <Filter2 size="small" /> : null}
                       disabled={filterLoading}
                       onClick={_onShowFilters}
                       css={{ minWidth: "fit-content" }}
                       size="sm"
                       auto
                     >
-                      {filterLoading && <Loading type="points" />}
+                      {filterLoading && <Loading type="points-opacity" />}
                       {!filterLoading && "Add filter"}
                     </Button>
                   </Media>
@@ -323,19 +389,32 @@ function ProjectDashboard(props) {
                     />
                   </Media>
                   <Spacer x={0.5} />
-                  <div style={mobile ? {} : { borderLeft: "solid 1px #d4d4d5" }}>
+                  <div style={mobile ? {} : { borderLeft: "solid 1px #d4d4d5", paddingLeft: 10 }}>
                     {filters
                       && filters[match.params.projectId]
                       && filters[match.params.projectId].map((filter) => (
-                        <Badge type="primary" key={filter.id}>
-                          <span>{`${filter.field.substring(filter.field.lastIndexOf(".") + 1)}`}</span>
-                          <strong>{` ${_getOperator(filter.operator)} `}</strong>
-                          <span>{`${filter.value}`}</span>
-                          <Spacer x={0.2} />
-                          <LinkNext onClick={() => _onRemoveFilter(filter.id)} css={{ color: "$text" }}>
-                            <CloseSquare size="small" />
-                          </LinkNext>
-                        </Badge>
+                        <Fragment key={filter.id}>
+                          {filter.type === "date" && (
+                            <Badge color="primary" variant={"bordered"} isSquared>
+                              {`${moment.utc(filter.startDate).format("YYYY/MM/DD")} - ${moment.utc(filter.endDate).format("YYYY/MM/DD")}`}
+                              <Spacer x={0.2} />
+                              <LinkNext onClick={() => _onRemoveFilter(filter.id)} css={{ color: "$text" }}>
+                                <CloseSquare size="small" style={{ padding: 0 }} />
+                              </LinkNext>
+                            </Badge>
+                          )}
+                          {filter.type !== "date" && (
+                            <Badge color="primary" variant={"bordered"} isSquared>
+                              <span>{`${filter.field.substring(filter.field.lastIndexOf(".") + 1)}`}</span>
+                              <strong>{` ${_getOperator(filter.operator)} `}</strong>
+                              <span>{`${filter.value}`}</span>
+                              <Spacer x={0.2} />
+                              <LinkNext onClick={() => _onRemoveFilter(filter.id)} css={{ color: "$text" }}>
+                                <CloseSquare size="small" />
+                              </LinkNext>
+                            </Badge>
+                          )}
+                        </Fragment>
                       ))}
                   </div>
                 </Row>
@@ -513,6 +592,8 @@ function ProjectDashboard(props) {
         onAddFilter={_onAddFilter}
         open={showFilters}
         onClose={() => setShowFilters(false)}
+        filterGroups={filterGroups?.[match?.params?.projectId] || []}
+        onEditFilterGroup={_onEditFilterGroup}
       />
 
       <Modal open={viewExport} closeButton onClose={() => setViewExport(false)} width="800px">
@@ -635,7 +716,9 @@ const mapDispatchToProps = (dispatch) => {
     runQueryWithFilters: (projectId, chartId, filters) => (
       dispatch(runQueryWithFiltersAction(projectId, chartId, filters))
     ),
-    runQuery: (projectId, chartId) => dispatch(runQueryAction(projectId, chartId)),
+    runQuery: (projectId, chartId, source, skipParsing, cache, dateFilter) => (
+      dispatch(runQueryAction(projectId, chartId, source, skipParsing, cache, dateFilter))
+    ),
     getProjectCharts: (projectId) => dispatch(getProjectChartsAction(projectId)),
     changeOrder: (projectId, chartId, otherId) => (
       dispatch(changeOrderAction(projectId, chartId, otherId))

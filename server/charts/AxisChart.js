@@ -15,6 +15,22 @@ momentObj.suppressDeprecationWarnings = true;
 
 const parser = new FormulaParser();
 
+function formatCompactNumber(number) {
+  if (number < 1000) {
+    return number;
+  } else if (number >= 1000 && number < 1_000_000) {
+    return `${(number / 1000).toFixed(1)}K`;
+  } else if (number >= 1_000_000 && number < 1_000_000_000) {
+    return `${(number / 1_000_000).toFixed(1)}M`;
+  } else if (number >= 1_000_000_000 && number < 1_000_000_000_000) {
+    return `${(number / 1_000_000_000).toFixed(1)}B`;
+  } else if (number >= 1_000_000_000_000 && number < 1_000_000_000_000_000) {
+    return `${(number / 1_000_000_000_000).toFixed(1)}T`;
+  } else {
+    return 0;
+  }
+}
+
 const areDatesTheSame = (first, second, interval) => {
   let firstDate = first;
   if (`${first}` === `${parseInt(first, 10)}`) {
@@ -110,6 +126,19 @@ class AxisChart {
         endDate = endDate.endOf("day");
       }
 
+      if (this.chart.startDate && this.chart.endDate) {
+        if (this.chart.currentEndDate) {
+          const timeDiff = endDate.diff(startDate, this.chart.timeInterval);
+          endDate = this.moment().endOf(this.chart.timeInterval);
+
+          if (!this.chart.fixedStartDate) {
+            startDate = endDate.clone()
+              .subtract(timeDiff, this.chart.timeInterval)
+              .startOf(this.chart.timeInterval);
+          }
+        }
+      }
+
       for (let i = 0; i < this.datasets.length; i++) {
         const dataset = this.datasets[i];
         const { yAxisOperation, dateField } = dataset.options;
@@ -131,20 +160,11 @@ class AxisChart {
         let filteredData = filterData.data;
 
         if (dateField && this.chart.startDate && this.chart.endDate && canDateFilter) {
-          if (this.chart.currentEndDate) {
-            const timeDiff = endDate.diff(startDate, this.chart.timeInterval);
-            endDate = this.moment().endOf("day");
-            if (!this.chart.fixedStartDate) {
-              startDate = endDate.clone().subtract(timeDiff, this.chart.timeInterval);
-              if (this.chart.timeInterval === "month") {
-                startDate = startDate.startOf("month");
-              } else if (this.chart.timeInterval === "year") {
-                startDate = startDate.startOf("year");
-              } else {
-                startDate = startDate.startOf("day");
-              }
-            } else {
-              startDate = startDate.startOf("day");
+          if (filters?.length > 0) {
+            const dateDashboardFilter = filters.find((f) => f.type === "date");
+            if (dateDashboardFilter) {
+              startDate = momentObj(dateDashboardFilter.startDate).startOf("day");
+              endDate = momentObj(dateDashboardFilter.endDate).endOf("day");
             }
           }
 
@@ -197,254 +217,289 @@ class AxisChart {
           xAxisFieldName = xAxisFieldName.substring(xAxisFieldName.lastIndexOf(".") + 1);
         }
 
-        if (!(xData instanceof Array)) throw new Error("The X field is not part of an Array");
-        const unprocessedX = [];
-        xData.map((item) => {
-          const xValue = _.get(item, xAxis);
-          if (xValue) {
-            xType = determineType(xValue);
+        if (!(xData instanceof Array) || !xData) {
+          const dataFinder = xAxis.substring(xAxis.indexOf(".") + 1);
+          xAxis = xAxis.substring(xAxis.lastIndexOf(".") + 1);
+          xData = _.get(filteredData, dataFinder);
+
+          if (!xData) {
+            throw new Error("Could not find data for xAxis");
           }
-          unprocessedX.push(xValue);
-          return item;
-        });
 
-        gXType = xType;
-        // X AXIS data processing
-        switch (xType) {
-          case "date":
-            xAxisData = this.processDate(unprocessedX, canDateFilter);
-            break;
-          case "number":
-            xAxisData = this.processNumber(unprocessedX);
-            break;
-          case "string":
-            xAxisData = this.processString(unprocessedX);
-            break;
-          case "boolean":
-            xAxisData = this.processBoolean(unprocessedX);
-            break;
-          case "object":
-            xAxisData = this.processObject(unprocessedX);
-            break;
-          case "array":
-            xAxisData = this.processObject(unprocessedX);
-            break;
-          default:
-            xAxisData = this.processObject(unprocessedX);
-            break;
-        }
-
-        // now the yAxis
-        if (yAxis.indexOf("root[]") > -1) {
-          yAxis = yAxis.replace("root[].", "");
-          // and data stays the same
-          yData = filteredData;
-        } else {
-          const arrayFinder = yAxis.substring(0, yAxis.indexOf("]") - 1).replace("root.", "");
-          yAxis = yAxis.substring(yAxis.indexOf("]") + 2);
-          yData = _.get(filteredData, arrayFinder);
-        }
-
-        // make sure the y results are ordered according to the x results for date types
-        if (gXType === "date") {
-          const orderHelper = [];
-          const yDataTemp = _.cloneDeep(yData);
-          xAxisData.filtered.forEach((xItem) => {
-            // go through each y item in the yData array to make sure they are ordered correctly
-            for (let y = 0; y < yDataTemp.length; y++) {
-              const valToCompare = _.get(yDataTemp[y], xAxis);
-              if (valToCompare
-                && ((
-                  (valToCompare.toString().length === 10 || valToCompare.toString().length === 13)
-                  && areDatesTheSame(parseInt(valToCompare, 10), xItem, this.chart.interval))
-                || areDatesTheSame(valToCompare, xItem, this.chart.timeInterval))
-              ) {
-                orderHelper.push(yDataTemp[y]);
-                yDataTemp.splice(y, 1);
-                break;
-              }
-            }
-          });
-
-          yData = orderHelper;
-        }
-
-        if (!(yData instanceof Array)) throw new Error("The Y field is not part of an Array");
-
-        yData.forEach((item, index) => {
-          const yValue = _.get(item, yAxis);
-          if (yValue || yValue === 0) {
-            yType = determineType(yValue);
-            // only add the yValue if it corresponds to one of the x values found above
-            const selectorValue = xAxis.indexOf(".") > -1 ? _.get(yData[index], xAxis) : yData[index][xAxisFieldName];
-
-            // the index check is used only in case we're looking for dates
-            let indexCheck;
-            if (xType === "date") {
-              indexCheck = _.findIndex(
-                xAxisData.filtered,
-                (dateValue) => (
-                  areDatesTheSame(dateValue, yData[index][xAxisFieldName], this.chart.interval)
-                )
-              );
-            }
-
-            if (_.indexOf(xAxisData.filtered, selectorValue) > -1) {
-              yAxisData.push({ x: xAxisData.filtered[index], y: yValue });
-            } else if (xType === "date" && (indexCheck !== -1 || indexCheck !== false)) {
-              yAxisData.push({ x: xAxisData.formatted[index], y: yValue });
-            }
+          if (xData !== null && xData.constructor.name === "Object") {
+            this.axisData.x.push(Object.keys(xData));
+            this.axisData.y.push(Object.values(xData));
           } else {
-            let newItem = item;
-            if (yValue === 0) {
-              yType = "number";
-            } else if (yType === "array") {
-              newItem = [];
-            } else if (yAxis && yAxis.split("[]").length > 1) {
-              const nestedArray = _.get(item, yAxis.split("[]")[0]);
-              // console.log("nestedArray", nestedArray);
-              const arrayField = _.get(nestedArray[0], yAxis.split("[]")[1].slice(1));
-              yType = determineType(arrayField);
-            }
-            yAxisData.push({ x: xAxisData.filtered[index], y: newItem });
+            this.axisData.x.push([xAxis]);
+            this.axisData.y.push([xData]);
           }
-        });
-
-        // Y CHART data processing
-        switch (yAxisOperation) {
-          case "none":
-            yAxisData = this.operate(yAxisData, xAxisData.formatted, xType, yType, yAxis);
-            break;
-          case "count":
-            yAxisData = this.count(xAxisData.formatted, yType, yAxisData, yAxis);
-            break;
-          case "count_unique":
-            yAxisData = this.countUnique(yAxisData, yType);
-            break;
-          case "avg":
-            if (yType === "array") {
-              yAxisData = this.count(xAxisData.formatted, yType, yAxisData, "avg", yAxis, dataset.options.averageByTotal);
-            } else {
-              yAxisData = this.operate(yAxisData, xAxisData.formatted, xType, yType, "avg", yAxis, dataset.options.averageByTotal);
+        } else {
+          const unprocessedX = [];
+          xData.map((item) => {
+            const xValue = _.get(item, xAxis);
+            if (xValue) {
+              xType = determineType(xValue);
             }
-            break;
-          case "sum":
-            if (yType === "array") {
-              yAxisData = this.count(xAxisData.formatted, yType, yAxisData, yAxis);
-            } else {
-              yAxisData = this.operate(yAxisData, xAxisData.formatted, xType, yType, "sum", yAxis);
-            }
-            break;
-          case "min":
-            if (yType === "array") {
-              yAxisData = this.count(xAxisData.formatted, yType, yAxisData, "min", yAxis);
-            } else {
-              yAxisData = this.operate(yAxisData, xAxisData.formatted, xType, yType, "min", yAxis);
-            }
-            break;
-          case "max":
-            if (yType === "array") {
-              yAxisData = this.count(xAxisData.formatted, yType, yAxisData, "max", yAxis);
-            } else {
-              yAxisData = this.operate(yAxisData, xAxisData.formatted, xType, yType, "max", yAxis);
-            }
-            break;
-          default:
-            yAxisData = this.operate(yAxisData, xAxisData.formatted, xType, yType, yAxis);
-            break;
-        }
-
-        // now push the final data into the axis data x & y
-        this.axisData.y.push([]);
-        this.axisData.x.push([]);
-        const xLength = this.axisData.x.length - 1;
-        const yLength = this.axisData.y.length - 1;
-
-        Object.keys(yAxisData).forEach((key) => {
-          // if the key doesn't already exist on the X axis, add it
-          if (xType !== "date" && _.indexOf(this.axisData.x[xLength], key) === -1) {
-            this.axisData.x[xLength].push(key);
-          } else if (xType === "date") {
-            let timestampFormat = null;
-            if (
-              parseInt(key, 10).toString() === key.toString()
-              && key.toString().length === 10
-            ) {
-              timestampFormat = "X";
-            }
-            // need to check if a date in the same interval already exists in the array
-            const existingDate = _
-              .find(
-                this.axisData.x[xLength], (x) => {
-                  return this.moment(x, timestampFormat)
-                    .isSame(this.moment(key, timestampFormat), this.chart.timeInterval);
-                }
-              );
-
-            if (!existingDate) this.axisData.x[xLength].push(key);
-          }
-
-          // add the y values
-          this.axisData.y[yLength].push(yAxisData[key]);
-        });
-
-        // if the include zero values on the chart is selected
-        if (this.chart.includeZeros
-          && gXType === "date"
-          && this.chart.timeInterval !== "minute"
-          && this.chart.timeInterval !== "second"
-        ) {
-          const tempXData = this.axisData.x[xLength];
-
-          const newX = [];
-          const newY = [];
-
-          for (let i = 0; i < tempXData.length; i++) {
-            newX.push(tempXData[i]);
-            newY.push(this.axisData.y[yLength][i]);
-
-            if (i === tempXData.length - 1) break;
-
-            const currDate = this.moment(tempXData[i], this.dateFormat);
-            const nextDate = this.moment(tempXData[i + 1], this.dateFormat);
-            const difference = nextDate.diff(currDate, this.chart.timeInterval);
-            if (nextDate.diff(currDate, this.chart.timeInterval) > 1) {
-              let dateModifier = 1;
-              if (difference >= 100) {
-                dateModifier = parseInt(difference / 20, 10);
-              }
-              currDate.add(dateModifier, this.chart.timeInterval);
-              while (currDate.isBefore(nextDate)) {
-                newX.push(currDate.format(this.dateFormat));
-                newY.push(0);
-                currDate.add(dateModifier, this.chart.timeInterval);
-              }
-            }
-          }
-
-          this.axisData.x[xLength] = newX;
-          this.axisData.y[yLength] = newY;
-        }
-
-        // if it's an accumulation chart
-        if (this.chart.subType.indexOf("AddTimeseries") > -1) {
-          const newY = [];
-          this.axisData.y[yLength].map((item, index) => {
-            let formattedItem = item;
-            if (determineType(item) === "number") {
-              formattedItem = parseFloat(item);
-            }
-
-            if (index > 0) {
-              newY.push(formattedItem + newY[newY.length - 1]);
-            } else {
-              newY.push(formattedItem);
-            }
-
+            unprocessedX.push(xValue);
             return item;
           });
 
-          this.axisData.y[yLength] = newY;
+          gXType = xType;
+          // X AXIS data processing
+          switch (xType) {
+            case "date":
+              xAxisData = this.processDate(unprocessedX, canDateFilter);
+              break;
+            case "number":
+              xAxisData = this.processNumber(unprocessedX);
+              break;
+            case "string":
+              xAxisData = this.processString(unprocessedX);
+              break;
+            case "boolean":
+              xAxisData = this.processBoolean(unprocessedX);
+              break;
+            case "object":
+              xAxisData = this.processObject(unprocessedX);
+              break;
+            case "array":
+              xAxisData = this.processObject(unprocessedX);
+              break;
+            default:
+              xAxisData = this.processObject(unprocessedX);
+              break;
+          }
+
+          // now the yAxis
+          if (yAxis.indexOf("root[]") > -1) {
+            yAxis = yAxis.replace("root[].", "");
+            // and data stays the same
+            yData = filteredData;
+          } else {
+            const arrayFinder = yAxis.substring(0, yAxis.indexOf("]") - 1).replace("root.", "");
+            yAxis = yAxis.substring(yAxis.indexOf("]") + 2);
+            yData = _.get(filteredData, arrayFinder);
+          }
+
+          // make sure the y results are ordered according to the x results for date types
+          if (gXType === "date") {
+            const orderHelper = [];
+            const yDataTemp = _.cloneDeep(yData);
+            xAxisData.filtered.forEach((xItem) => {
+              // go through each y item in the yData array to make sure they are ordered correctly
+              for (let y = 0; y < yDataTemp.length; y++) {
+                const valToCompare = _.get(yDataTemp[y], xAxis);
+                if (valToCompare
+                  && ((
+                    (valToCompare.toString().length === 10 || valToCompare.toString().length === 13)
+                    && areDatesTheSame(parseInt(valToCompare, 10), xItem, this.chart.interval))
+                  || areDatesTheSame(valToCompare, xItem, this.chart.timeInterval))
+                ) {
+                  orderHelper.push(yDataTemp[y]);
+                  yDataTemp.splice(y, 1);
+                  break;
+                }
+              }
+            });
+
+            yData = orderHelper;
+          }
+
+          if (!(yData instanceof Array)) throw new Error("The Y field is not part of an Array");
+
+          yData.forEach((item, index) => {
+            const yValue = _.get(item, yAxis);
+            if (yValue || yValue === 0) {
+              yType = determineType(yValue);
+              // only add the yValue if it corresponds to one of the x values found above
+              const selectorValue = xAxis.indexOf(".") > -1 ? _.get(yData[index], xAxis) : yData[index][xAxisFieldName];
+
+              // the index check is used only in case we're looking for dates
+              let indexCheck;
+              if (xType === "date") {
+                indexCheck = _.findIndex(
+                  xAxisData.filtered,
+                  (dateValue) => (
+                    areDatesTheSame(dateValue, yData[index][xAxisFieldName], this.chart.interval)
+                  )
+                );
+              }
+
+              if (_.indexOf(xAxisData.filtered, selectorValue) > -1) {
+                yAxisData.push({ x: xAxisData.filtered[index], y: yValue });
+              } else if (xType === "date" && (indexCheck !== -1 || indexCheck !== false)) {
+                yAxisData.push({ x: xAxisData.formatted[index], y: yValue });
+              }
+            } else {
+              let newItem = item;
+              if (yValue === 0) {
+                yType = "number";
+              } else if (yType === "array") {
+                newItem = [];
+              } else if (yAxis && yAxis.split("[]").length > 1) {
+                const nestedArray = _.get(item, yAxis.split("[]")[0]);
+                // console.log("nestedArray", nestedArray);
+                const arrayField = _.get(nestedArray[0], yAxis.split("[]")[1].slice(1));
+                yType = determineType(arrayField);
+              }
+              yAxisData.push({ x: xAxisData.filtered[index], y: newItem });
+            }
+          });
+
+          // Y CHART data processing
+          switch (yAxisOperation) {
+            case "none":
+              yAxisData = this.operate(yAxisData, xAxisData.formatted, xType, yType, yAxis);
+              break;
+            case "count":
+              yAxisData = this.count(xAxisData.formatted, yType, yAxisData, "count", yAxis);
+              break;
+            case "count_unique":
+              yAxisData = this.countUnique(yAxisData, yType);
+              break;
+            case "avg":
+              if (yType === "array") {
+                yAxisData = this.count(xAxisData.formatted, yType, yAxisData, "avg", yAxis, dataset.options.averageByTotal);
+              } else {
+                yAxisData = this.operate(yAxisData, xAxisData.formatted, xType, yType, "avg", yAxis, dataset.options.averageByTotal);
+              }
+              break;
+            case "sum":
+              if (yType === "array") {
+                yAxisData = this.count(xAxisData.formatted, yType, yAxisData, yAxis);
+              } else {
+                yAxisData = this.operate(yAxisData, xAxisData.formatted, xType, yType, "sum", yAxis);
+              }
+              break;
+            case "min":
+              if (yType === "array") {
+                yAxisData = this.count(xAxisData.formatted, yType, yAxisData, "min", yAxis);
+              } else {
+                yAxisData = this.operate(yAxisData, xAxisData.formatted, xType, yType, "min", yAxis);
+              }
+              break;
+            case "max":
+              if (yType === "array") {
+                yAxisData = this.count(xAxisData.formatted, yType, yAxisData, "max", yAxis);
+              } else {
+                yAxisData = this.operate(yAxisData, xAxisData.formatted, xType, yType, "max", yAxis);
+              }
+              break;
+            default:
+              yAxisData = this.operate(yAxisData, xAxisData.formatted, xType, yType, yAxis);
+              break;
+          }
+
+          // now push the final data into the axis data x & y
+          this.axisData.y.push([]);
+          this.axisData.x.push([]);
+          const xLength = this.axisData.x.length - 1;
+          const yLength = this.axisData.y.length - 1;
+
+          Object.keys(yAxisData).forEach((key) => {
+            // if the key doesn't already exist on the X axis, add it
+            if (xType !== "date" && _.indexOf(this.axisData.x[xLength], key) === -1) {
+              this.axisData.x[xLength].push(key);
+            } else if (xType === "date") {
+              let timestampFormat = null;
+              if (
+                parseInt(key, 10).toString() === key.toString()
+                && key.toString().length === 10
+              ) {
+                timestampFormat = "X";
+              }
+              // need to check if a date in the same interval already exists in the array
+              const existingDate = _
+                .find(
+                  this.axisData.x[xLength], (x) => {
+                    return this.moment(x, timestampFormat)
+                      .isSame(this.moment(key, timestampFormat), this.chart.timeInterval);
+                  }
+                );
+
+              if (!existingDate) this.axisData.x[xLength].push(key);
+            }
+
+            // add the y values
+            this.axisData.y[yLength].push(yAxisData[key]);
+          });
+
+          // if the include zero values on the chart is selected
+          if (this.chart.includeZeros
+            && gXType === "date"
+            && this.chart.timeInterval !== "minute"
+            && this.chart.timeInterval !== "second"
+          ) {
+            const tempXData = this.axisData.x[xLength];
+
+            const newX = [];
+            const newY = [];
+
+            // add the dates that are missing from the start of the chart
+            if (startDate) {
+              const firstDate = this.moment(tempXData[0], this.dateFormat);
+              const difference = firstDate.diff(startDate, this.chart.timeInterval);
+              if (difference > 1) {
+                let dateModifier = 1;
+                if (difference >= 100) {
+                  dateModifier = parseInt(difference / 20, 10);
+                }
+                firstDate.subtract(dateModifier, this.chart.timeInterval);
+                while (firstDate.isAfter(startDate)) {
+                  newX.push(firstDate.format(this.dateFormat));
+                  newY.push(0);
+                  firstDate.subtract(dateModifier, this.chart.timeInterval);
+                }
+              }
+            }
+
+            for (let i = 0; i < tempXData.length; i++) {
+              newX.push(tempXData[i]);
+              newY.push(this.axisData.y[yLength][i]);
+
+              if (i === tempXData.length - 1) break;
+
+              const currDate = this.moment(tempXData[i], this.dateFormat);
+              const nextDate = this.moment(tempXData[i + 1], this.dateFormat);
+              const difference = nextDate.diff(currDate, this.chart.timeInterval);
+              if (nextDate.diff(currDate, this.chart.timeInterval) > 1) {
+                let dateModifier = 1;
+                if (difference >= 100) {
+                  dateModifier = parseInt(difference / 20, 10);
+                }
+                currDate.add(dateModifier, this.chart.timeInterval);
+                while (currDate.isBefore(nextDate)) {
+                  newX.push(currDate.format(this.dateFormat));
+                  newY.push(0);
+                  currDate.add(dateModifier, this.chart.timeInterval);
+                }
+              }
+            }
+
+            this.axisData.x[xLength] = newX;
+            this.axisData.y[yLength] = newY;
+          }
+
+          // if it's an accumulation chart
+          if (this.chart.subType.indexOf("AddTimeseries") > -1) {
+            const newY = [];
+            this.axisData.y[yLength].map((item, index) => {
+              let formattedItem = item;
+              if (determineType(item) === "number") {
+                formattedItem = parseFloat(item);
+              }
+
+              if (index > 0) {
+                newY.push(formattedItem + newY[newY.length - 1]);
+              } else {
+                newY.push(formattedItem);
+              }
+
+              return item;
+            });
+
+            this.axisData.y[yLength] = newY;
+          }
         }
       }
 
@@ -492,7 +547,9 @@ class AxisChart {
         const lastValue = this.moment(unifiedX[unifiedX.length - 1], this.dateFormat);
         lastValue.add(1, this.chart.timeInterval);
         while (lastValue.isBefore(endDate)) {
-          unifiedX.push(lastValue.clone().format(this.dateFormat));
+          if (unifiedX.indexOf(lastValue.clone().format(this.dateFormat)) === -1) {
+            unifiedX.push(lastValue.clone().format(this.dateFormat));
+          }
           lastValue.add(1, this.chart.timeInterval);
         }
       }
@@ -576,7 +633,7 @@ class AxisChart {
     const configuration = chart.getConfiguration();
 
     const newDatasets = configuration.data.datasets;
-    const newLabels = configuration.data.labels;
+    let newLabels = configuration.data.labels;
 
     // apply sorting if available
     let shouldSort = false;
@@ -599,6 +656,7 @@ class AxisChart {
           }
 
           if (sortCondition) {
+            // console.log("newDatasets[sortIndex].data[i]", newDatasets[sortIndex].data[i]);
             // first, sort the dataset with the sorting option enabled
             const saved = newDatasets[sortIndex].data[i];
             newDatasets[sortIndex].data[i] = newDatasets[sortIndex].data[j];
@@ -622,25 +680,36 @@ class AxisChart {
       }
     }
 
+    // apply max records if available
+    this.datasets.forEach((d, index) => {
+      if (d.options.maxRecords) {
+        newDatasets[index].data = newDatasets[index].data.slice(0, d.options.maxRecords);
+        newLabels = newLabels.slice(0, d.options.maxRecords);
+      }
+    });
+
     configuration.data.datasets = newDatasets;
     configuration.data.labels = newLabels;
     // calculate the growth values
     configuration.growth = [];
+    configuration.goals = [];
     configuration.data.datasets.forEach((d, index) => {
-      const { formula } = this.datasets[index].options;
+      const { formula, goal } = this.datasets[index].options;
       const before = formula ? formula.substring(0, formula.indexOf("{")) : "";
       const after = formula ? formula.substring(formula.indexOf("}") + 1) : "";
 
       if (d.data && d.data.length > 1 && d.data[d.data.length - 2] !== 0) {
         // get the last and previous values and make sure to format them as numbers
+        let numericCurrValue;
+        let numericPrevValue;
         let currentValue;
         let previousValue;
 
         try {
-          const currArr = `${d.data[d.data.length - 1]}`.replace(",", "").match(/[\d.]+/g);
-          const prevArr = `${d.data[d.data.length - 2]}`.replace(",", "").match(/[\d.]+/g);
-          currentValue = parseFloat(currArr.filter((n) => n !== "." && n !== ",")[0]);
-          previousValue = parseFloat(prevArr.filter((n) => n !== "." && n !== ",")[0]);
+          numericCurrValue = `${d.data[d.data.length - 1]}`.replace(",", "").match(/[\d.]+/g);
+          numericPrevValue = `${d.data[d.data.length - 2]}`.replace(",", "").match(/[\d.]+/g);
+          currentValue = parseFloat(numericCurrValue.filter((n) => n !== "." && n !== ",")[0]);
+          previousValue = parseFloat(numericPrevValue.filter((n) => n !== "." && n !== ",")[0]);
         } catch (e) { /** */ }
 
         if (determineType(currentValue) === "number" && determineType(previousValue) === "number") {
@@ -654,6 +723,19 @@ class AxisChart {
             status: (result > 0 && "positive") || (result < 0 && "negative") || "neutral",
             label: d.label,
           });
+
+          if (goal) {
+            const valueIndex = this.chart.subType.indexOf("AddTimeseries") > -1
+              ? d.data.length - 1 : index;
+            const goalCurrentValue = `${d.data[valueIndex]}`.replace(",", "").match(/[\d.]+/g);
+            configuration.goals.push({
+              max: goal,
+              formattedMax: `${before}${formatCompactNumber(goal)}${after}`,
+              value: goalCurrentValue,
+              formattedValue: `${before}${numericCurrValue.toLocaleString()}${after}`,
+              goalIndex: index,
+            });
+          }
         }
       } else if (d.data && d.data.length === 1) {
         configuration.growth.push({
@@ -662,6 +744,17 @@ class AxisChart {
           status: "positive",
           label: d.label,
         });
+
+        if (goal) {
+          const numericVal = `${d.data[d.data.length - 1]}`.replace(",", "").match(/[\d.]+/g);
+          configuration.goals.push({
+            max: goal,
+            formattedMax: `${before}${formatCompactNumber(goal)}${after}`,
+            value: numericVal,
+            formattedValue: `${before}${numericVal.toLocaleString()}${after}`,
+            goalIndex: index,
+          });
+        }
       } else if (d.data.length > 1) {
         let currentValue;
         try {
@@ -677,6 +770,16 @@ class AxisChart {
           status: (currentValue > 0 && "positive") || (currentValue < 0 && "negative") || "neutral",
           label: d.label,
         });
+
+        if (goal) {
+          configuration.goals.push({
+            max: goal,
+            formattedMax: `${before}${formatCompactNumber(goal)}${after}`,
+            value: d.data[d.data.length - 1],
+            formattedValue: `${before}${d.data[d.data.length - 1]}${after}`,
+            goalIndex: index,
+          });
+        }
       }
     });
 
@@ -903,8 +1006,9 @@ class AxisChart {
         let nestedResult = 0;
         let minValue;
         let maxValue;
+        let nestedData = [];
         collection.forEach((c) => {
-          const nestedData = _.get(c, nestedArray[0]);
+          nestedData = _.get(c, nestedArray[0]);
           // get the objects in the nested array
           if (op !== "count" && yType === "number") {
             nestedData.forEach((current) => {
@@ -918,7 +1022,7 @@ class AxisChart {
         }
 
         if (op === "avg" && !averageByTotal) {
-          finalItem = nestedResult / collection.length;
+          finalItem = nestedResult / nestedData.length;
         } else if (op === "min") {
           if (nestedResult < minValue || (!minValue && minValue !== 0)) {
             finalItem = nestedResult;
@@ -936,12 +1040,13 @@ class AxisChart {
         }
       } else {
         finalItem = finalItem[yData[key].length - 1];
-        if (op === "sum" && yType === "number") finalItem = _.reduce(yData[key], (sum, n) => sum + n, 0);
+        // console.log("yData[key]", yData[key]);
+        if (op === "sum" && yType === "number") finalItem = _.reduce(yData[key], (sum, n) => sum + (n instanceof Object ? 0 : n), 0);
         if (op === "avg" && yType === "number") {
           if (averageByTotal) {
             totalNumberOfItems += yData[key].length;
           } else {
-            finalItem = _.reduce(yData[key], (avg, n) => avg + n);
+            finalItem = _.reduce(yData[key], (avg, n) => avg + (n instanceof Object ? 0 : n));
             finalItem /= yData[key].length;
             finalItem = parseFloat(finalItem.toFixed(2));
           }

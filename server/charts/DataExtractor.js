@@ -3,7 +3,7 @@ const _ = require("lodash");
 
 const dataFilter = require("./dataFilter");
 
-module.exports = (data, filters, timezone = "Asia/Bangkok") => {
+module.exports = (data, filters, timezone) => {
   const { chart, datasets } = data;
 
   let moment = null;
@@ -70,14 +70,31 @@ module.exports = (data, filters, timezone = "Asia/Bangkok") => {
         operator: "lessOrEqual",
       }];
 
+      // check if any date filters should be applied
+      // these filters come from the dashboard filters and override the global date filter
+      const dateRangeFilter = filters.find((o) => o.type === "date");
+      if (dateRangeFilter) {
+        dateConditions[0] = {
+          field: dateField,
+          value: moment(dateRangeFilter.startDate).startOf("day"),
+          operator: "greaterOrEqual",
+        };
+        dateConditions[1] = {
+          field: dateField,
+          value: moment(dateRangeFilter.endDate).endOf("day"),
+          operator: "lessOrEqual",
+        };
+      }
+
       filteredData = dataFilter(filteredData, dateField, dateConditions).data;
     }
 
+    // these are the custom-field filters
     if (filters && filters.length > 0) {
       if (dataset.options && dataset.options.fieldsSchema) {
         let found = false;
         Object.keys(dataset.options.fieldsSchema).forEach((key) => {
-          if (_.find(filters, (o) => o.field === key)) {
+          if (_.find(filters, (o) => o.type !== "date" && o.field === key)) {
             found = true;
           }
         });

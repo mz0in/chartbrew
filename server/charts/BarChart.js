@@ -16,7 +16,7 @@ class NewBarChart {
 
       const formattedDataset = {
         label: dataset.options.legend,
-        data: this.axisData.y[i],
+        data: this.axisData.y[i]?.length === 0 ? [0] : this.axisData.y[i],
         borderWidth: 1.5,
         hoverBorderWidth: 3,
       };
@@ -37,11 +37,34 @@ class NewBarChart {
           color: dataset.options.fillColor.map((color) => getContrastYIQ(color)),
           display: "auto",
         };
+        if (this.chart.type === "bar") {
+          formattedDataset.datalabels.align = this.chart.horizontal ? "end" : "start";
+          formattedDataset.datalabels.anchor = "end";
+          if (this.chart.stacked) {
+            if (i === this.datasets.length - 1 && this.datasets.length > 1) {
+              formattedDataset.datalabels.offset = -16;
+              formattedDataset.datalabels.color = dataset.options.fillColor;
+            }
+            formattedDataset.datalabels.display = true;
+          }
+        }
       } else {
         formattedDataset.datalabels = {
           color: getContrastYIQ(dataset.options.fillColor),
           display: "auto",
         };
+
+        if (this.chart.type === "bar") {
+          formattedDataset.datalabels.align = this.chart.horizontal ? "end" : "start";
+          formattedDataset.datalabels.anchor = "end";
+          if (this.chart.stacked) {
+            if (i === this.datasets.length - 1 && this.datasets.length > 1) {
+              formattedDataset.datalabels.offset = -16;
+              formattedDataset.datalabels.color = dataset.options.fillColor;
+            }
+            formattedDataset.datalabels.display = true;
+          }
+        }
       }
 
       formattedDatasets.push(formattedDataset);
@@ -210,7 +233,11 @@ class NewBarChart {
         }
       }
 
-      chartJsData.options.scales.x.ticks.maxTicksLimit = maxTicksLimit;
+      if (this.chart.horizontal) {
+        chartJsData.options.scales.y.ticks.maxTicksLimit = maxTicksLimit;
+      } else {
+        chartJsData.options.scales.x.ticks.maxTicksLimit = maxTicksLimit;
+      }
     }
 
     return chartJsData;

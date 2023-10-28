@@ -114,7 +114,9 @@ function DatarequestSettings(props) {
         <>
           <Avatar
             squared
-            src={connectionImages(isDark)[dr.Connection.type]}
+            src={connectionImages(isDark)[
+              dr.Connection.subType || dr.Connection.type
+            ]}
             size={size}
           />
           <Spacer x={0.3} />
@@ -226,7 +228,7 @@ function DatarequestSettings(props) {
               <Text b>Main source</Text>
             </Row>
             <Row>
-              <Dropdown>
+              <Dropdown isBordered>
                 <Dropdown.Button
                   auto
                   bordered
@@ -250,7 +252,11 @@ function DatarequestSettings(props) {
                         (request.Connection?.type && (
                           <Avatar
                             squared
-                            src={connectionImages(isDark)[request.Connection.type]}
+                            src={
+                              connectionImages(isDark)[
+                                request.Connection.subType || request.Connection.type
+                              ]
+                            }
                           />
                         )) || null
                       )}
@@ -269,7 +275,7 @@ function DatarequestSettings(props) {
                   <Text>Join</Text>
                 </Grid>
                 <Grid xs={6} sm={5}>
-                  <Dropdown>
+                  <Dropdown isBordered>
                     <Dropdown.Button
                       auto
                       bordered
@@ -297,7 +303,9 @@ function DatarequestSettings(props) {
                           icon={(
                             <Avatar
                               squared
-                              src={connectionImages(isDark)[request.Connection.type]}
+                              src={connectionImages(isDark)[
+                                request.Connection.subType || request.Connection.type
+                              ]}
                             />
                           )}
                           command={`${dataRequests.findIndex((o) => o.id === request.id) + 1}`}
@@ -312,7 +320,7 @@ function DatarequestSettings(props) {
                   <Text>with</Text>
                 </Grid>
                 <Grid xs={6} sm={5}>
-                  <Dropdown>
+                  <Dropdown isBordered>
                     <Dropdown.Button
                       auto
                       bordered
@@ -340,7 +348,9 @@ function DatarequestSettings(props) {
                           icon={(
                             <Avatar
                               squared
-                              src={connectionImages(isDark)[request.Connection.type]}
+                              src={connectionImages(isDark)[
+                                request.Connection.subType || request.Connection.type
+                              ]}
                             />
                           )}
                           command={`${dataRequests.findIndex((o) => o.id === request.id) + 1}`}
@@ -358,7 +368,7 @@ function DatarequestSettings(props) {
                   <Text>where</Text>
                 </Grid>
                 <Grid xs={6} sm={5} css={styles.fieldContainer}>
-                  <Dropdown>
+                  <Dropdown isBordered>
                     <Dropdown.Trigger>
                       <Badge variant={"bordered"} isSquared color="primary">
                         <div style={styles.fieldContainer}>
@@ -393,7 +403,7 @@ function DatarequestSettings(props) {
                   <Text>=</Text>
                 </Grid>
                 <Grid xs={6} sm={5} css={styles.fieldContainer}>
-                  <Dropdown>
+                  <Dropdown isBordered>
                     <Dropdown.Trigger css={{ width: "100%" }}>
                       <Badge variant={"bordered"} isSquared color="secondary">
                         <div style={styles.fieldContainer}>
@@ -515,7 +525,6 @@ function DatarequestSettings(props) {
                 <Button
                   css={{ width: "100%" }}
                   color="primary"
-                  shadow
                   onClick={() => _onRunDataset()}
                   iconRight={isCompiling ? <Loading type="spinner" /> : <Play />}
                   disabled={isCompiling}
@@ -595,7 +604,6 @@ DatarequestSettings.propTypes = {
 };
 
 const mapStateToProps = (state) => ({
-  dataRequests: state.dataRequest.data,
   responses: state.dataset.responses,
   drResponses: state.dataRequest.responses,
 });

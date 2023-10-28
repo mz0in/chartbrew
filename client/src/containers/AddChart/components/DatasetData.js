@@ -16,7 +16,7 @@ import {
   Button, Collapse, Container, Dropdown, Grid, Input, Link, Loading, theme,
   Popover, Row, Spacer, Text, Tooltip, Divider, Badge, Switch, Modal, Checkbox,
 } from "@nextui-org/react";
-import { TbDragDrop } from "react-icons/tb";
+import { TbDragDrop, TbMathFunctionY, TbProgressCheck } from "react-icons/tb";
 import {
   CaretDown, CaretUp, ChevronRight, CloseSquare, Filter, Hide,
   InfoCircle, Plus, Setting, Show, TickSquare, Calendar as CalendarIcon, ChevronDownCircle, Danger,
@@ -53,6 +53,7 @@ function DatasetData(props) {
   const [fieldOptions, setFieldOptions] = useState([]);
   const [conditions, setConditions] = useState([]);
   const [formula, setFormula] = useState("");
+  const [goal, setGoal] = useState(null);
   const [tableFields, setTableFields] = useState([]);
   const [isDragState, setIsDragState] = useState(false);
   const [tableColumns, setTableColumns] = useState([]);
@@ -63,6 +64,7 @@ function DatasetData(props) {
   const [conditionModal, setConditionModal] = useState(false);
   const [selectedCondition, setSelectedCondition] = useState({});
   const [requestResult, setRequestResult] = useState(null);
+  const [datasetMaxRecords, setDatasetMaxRecords] = useState(null);
 
   const [fieldForFormatting, setFieldForFormatting] = useState("");
   const [fieldFormatConfig, setFieldFormatConfig] = useState(null);
@@ -76,11 +78,13 @@ function DatasetData(props) {
   // Update the content when there is some data to work with
   useEffect(() => {
     if (requestResult) {
-      const tempFieldOptions = [];
+      let tempFieldOptions = [];
+      const tempObjectOptions = [];
       const fieldsSchema = {};
       const updateObj = {};
 
       const fields = fieldFinder(requestResult);
+      const objectFields = fieldFinder(requestResult, false, true);
 
       fields.forEach((o) => {
         if (o.field) {
@@ -99,14 +103,41 @@ function DatasetData(props) {
                 : o.type === "number" ? "primary"
                   : o.type === "string" ? "success"
                     : o.type === "boolean" ? "warning"
-                      : "neutral"
+                      : "default"
             },
           });
         }
         fieldsSchema[o.field] = o.type;
       });
 
+      objectFields.forEach((obj) => {
+        if (obj.field) {
+          let text = obj.field && obj.field.replace("root[].", "").replace("root.", "");
+          if (obj.type === "array") text += "(get element count)";
+          tempObjectOptions.push({
+            key: obj.field,
+            text: obj.field && text,
+            value: obj.field,
+            type: obj.type,
+            isObject: true,
+            label: {
+              style: { width: 55, textAlign: "center" },
+              content: obj.type || "unknown",
+              size: "mini",
+              color: obj.type === "date" ? "secondary"
+                : obj.type === "number" ? "primary"
+                  : obj.type === "string" ? "success"
+                    : obj.type === "boolean" ? "warning"
+                      : "default"
+            },
+          });
+        }
+        fieldsSchema[obj.field] = obj.type;
+      });
+
       if (Object.keys(fieldsSchema).length > 0) updateObj.fieldsSchema = fieldsSchema;
+
+      tempFieldOptions = tempFieldOptions.concat(tempObjectOptions);
 
       setFieldOptions(tempFieldOptions);
 
@@ -157,6 +188,10 @@ function DatasetData(props) {
       setFormula(dataset.formula);
     }
 
+    if (dataset.goal) {
+      setGoal(dataset.goal);
+    }
+
     if (dataset.fieldsSchema) {
       const tempFieldOptions = [];
       Object.keys(dataset.fieldsSchema).forEach((key) => {
@@ -166,6 +201,7 @@ function DatasetData(props) {
           text: key && key.replace("root[].", "").replace("root.", ""),
           value: key,
           type,
+          isObject: key.indexOf("[]") === -1,
           label: {
             style: { width: 55, textAlign: "center" },
             content: type || "unknown",
@@ -174,7 +210,7 @@ function DatasetData(props) {
               : type === "number" ? "primary"
                 : type === "string" ? "success"
                   : type === "boolean" ? "warning"
-                    : "neutral"
+                    : "default"
           },
         });
       });
@@ -362,6 +398,19 @@ function DatasetData(props) {
 
   const _onApplyFormula = () => {
     onUpdate({ formula });
+  };
+
+  const _onAddGoal = () => {
+    setGoal(100);
+  };
+
+  const _onRemoveGoal = () => {
+    setGoal(null);
+    onUpdate({ goal: null });
+  };
+
+  const _onApplyGoal = () => {
+    onUpdate({ goal });
   };
 
   const _onExcludeField = (field) => {
@@ -601,7 +650,7 @@ function DatasetData(props) {
             )}
           </div>
           <div style={styles.rowDisplay}>
-            <Dropdown>
+            <Dropdown isBordered>
               <Dropdown.Trigger type="text">
                 <Input
                   type="text"
@@ -623,7 +672,11 @@ function DatasetData(props) {
                 css={{ minWidth: "max-content" }}
               >
                 {_filterOptions("x").map((option) => (
-                  <Dropdown.Item key={option.value} icon={<Badge size="xs" css={{ minWidth: 70 }} color={option.label.color}>{option.label.content}</Badge>}>
+                  <Dropdown.Item
+                    key={option.value}
+                    icon={<Badge size="xs" css={{ minWidth: 70 }} color={option.label.color}>{option.label.content}</Badge>}
+                    description={option.isObject ? "Key-Value visualization" : null}
+                  >
                     <Text>{option.text}</Text>
                   </Dropdown.Item>
                 ))}
@@ -655,7 +708,7 @@ function DatasetData(props) {
             )}
           </div>
           <div style={{ flexDirection: "row", display: "flex", alignItems: "center" }}>
-            <Dropdown>
+            <Dropdown isBordered>
               <Dropdown.Trigger type="text">
                 <Input
                   type="text"
@@ -680,6 +733,7 @@ function DatasetData(props) {
                   <Dropdown.Item
                     key={option.value}
                     icon={<Badge size="xs" css={{ minWidth: 70 }} color={option.label.color}>{option.label.content}</Badge>}
+                    description={option.isObject ? "Key-Value visualization" : null}
                   >
                     <Text>{option.text}</Text>
                   </Dropdown.Item>
@@ -717,10 +771,14 @@ function DatasetData(props) {
                 )}
               </div>
               <div>
-                <Dropdown>
-                  <Dropdown.Trigger type="text">
+                <Dropdown
+                  isBordered
+                  isDisabled={fieldOptions.find((o) => o.key === dataset.xAxis)?.isObject}
+                >
+                  <Dropdown.Trigger type={fieldOptions.find((o) => o.key === dataset.xAxis)?.isObject ? null : "text"}>
                     <Input
                       type="text"
+                      disabled={fieldOptions.find((o) => o.key === dataset.xAxis)?.isObject}
                       value={
                         yFieldFilter
                         || dataset.yAxis?.substring(dataset.yAxis.lastIndexOf(".") + 1)
@@ -739,14 +797,12 @@ function DatasetData(props) {
                     css={{ minWidth: "max-content" }}
                   >
                     {_getYFieldOptions().map((option) => (
-                      <Dropdown.Item key={option.value}>
-                        <Container css={{ p: 0, m: 0 }}>
-                          <Row>
-                            <Badge size="sm" css={{ minWidth: 70 }} color={option.label.color}>{option.label.content}</Badge>
-                            <Spacer x={0.2} />
-                            <Text>{option.text}</Text>
-                          </Row>
-                        </Container>
+                      <Dropdown.Item
+                        key={option.value}
+                        icon={<Badge size="sm" css={{ minWidth: 70 }} color={option.label.color}>{option.label.content}</Badge>}
+                        description={option.isObject ? "Key-Value visualization" : null}
+                      >
+                        <Text>{option.text}</Text>
                       </Dropdown.Item>
                     ))}
                   </Dropdown.Menu>
@@ -767,6 +823,7 @@ function DatasetData(props) {
                   value={dataset.yAxisOperation}
                   onChange={_selectYOp}
                   scrolling
+                  isBordered
                 >
                   <Dropdown.Trigger>
                     <Input
@@ -796,7 +853,7 @@ function DatasetData(props) {
             </Grid>
             <Grid xs={12} sm={6} md={6} direction="column">
               <div>
-                <Text size={14}>Sort on Y-Axis</Text>
+                <Text size={14}>Sort records</Text>
               </div>
               <div style={styles.rowDisplay}>
                 <Tooltip content="Sort the dataset in ascending order">
@@ -852,11 +909,46 @@ function DatasetData(props) {
                   />
                 </div>
               )}
+              {dataset.sort && (
+                <>
+                  <div>
+                    <Text size={14}>{"Max number of records"}</Text>
+                  </div>
+                  <div style={styles.rowDisplay}>
+                    <Input
+                      labelRight="records"
+                      bordered
+                      size="sm"
+                      initialValue={dataset.maxRecords}
+                      value={datasetMaxRecords || dataset.maxRecords || ""}
+                      onChange={(e) => setDatasetMaxRecords(e.target.value)}
+                    />
+                    <Spacer x={0.2} />
+                    <Tooltip content="Save">
+                      <Link css={{ color: "$success" }} onClick={() => onUpdate({ maxRecords: datasetMaxRecords })}>
+                        <TickSquare />
+                      </Link>
+                    </Tooltip>
+                    <Spacer x={0.2} />
+                    <Tooltip content="Clear limit">
+                      <Link
+                        css={{ color: "$error" }}
+                        onClick={() => {
+                          onUpdate({ maxRecords: null });
+                          setDatasetMaxRecords(null);
+                        }}
+                      >
+                        <CloseSquare />
+                      </Link>
+                    </Tooltip>
+                  </div>
+                </>
+              )}
             </Grid>
             <Grid xs={12} css={{ mt: 10 }}>
               {!formula && (
                 <Link onClick={_onAddFormula} css={{ ai: "center", color: "$text" }}>
-                  <Plus />
+                  <TbMathFunctionY size={24} />
                   <Spacer x={0.2} />
                   <Text b>Add Y-Axis formula</Text>
                 </Link>
@@ -912,6 +1004,48 @@ function DatasetData(props) {
             </div>
           </Grid>
         )}
+        {!goal && chartType !== "table" && (
+          <Grid xs={12} css={{ mt: 10 }}>
+            <Link onClick={_onAddGoal} css={{ ai: "center", color: "$text" }}>
+              <TbProgressCheck size={24} />
+              <Spacer x={0.2} />
+              <Text b>Set a goal</Text>
+            </Link>
+          </Grid>
+        )}
+        {goal && chartType !== "table" && (
+          <Grid xs={12} css={{ mt: 10 }} direction="column">
+            <Row align="center">
+              <Text size={16}>{"Goal "}</Text>
+              <Spacer x={0.2} />
+              <Tooltip content="A goal can be displayed as a progress bar in your KPI charts. Enter a number without any other characters. (e.g. 1000 instead of 1k)">
+                <InfoCircle size="small" />
+              </Tooltip>
+            </Row>
+            <Row align="center">
+              <Input
+                placeholder="Enter your goal here"
+                value={goal}
+                onChange={(e) => setGoal(e.target.value)}
+                bordered
+              />
+              <Spacer x={0.5} />
+              <Tooltip
+                content={goal === dataset.goal ? "The goal is already applied" : "Save goal"}
+              >
+                <Link onClick={goal === dataset.goal ? () => { } : _onApplyGoal}>
+                  <TickSquare primaryColor={goal === dataset.goal ? neutral : positive} />
+                </Link>
+              </Tooltip>
+              <Spacer x={0.2} />
+              <Tooltip content="Remove goal">
+                <Link onClick={_onRemoveGoal}>
+                  <CloseSquare primaryColor={negative} />
+                </Link>
+              </Tooltip>
+            </Row>
+          </Grid>
+        )}
         {chartType === "table" && (
           <>
             <Grid xs={12} css={{ pt: 20, pb: 20 }}>
@@ -944,7 +1078,7 @@ function DatasetData(props) {
                               <Spacer x={0.2} />
                               {`${field.accessor.replace("?", ".")}`}
                               <Spacer x={0.2} />
-                              <Dropdown>
+                              <Dropdown isBordered>
                                 <Dropdown.Trigger>
                                   <Link
                                     css={{ ai: "center" }}
@@ -1067,7 +1201,7 @@ function DatasetData(props) {
                 <Text size={14}>{"Group by"}</Text>
               </div>
               <div style={styles.rowDisplay}>
-                <Dropdown>
+                <Dropdown isBordered>
                   <Dropdown.Trigger type="text">
                     <Input
                       type="text"
@@ -1179,7 +1313,7 @@ function DatasetData(props) {
                   {index === 0 && (<Text size={14}>{"where "}</Text>)}
                   {index > 0 && (<Text size={14}>{"and "}</Text>)}
                   <Spacer x={0.2} />
-                  <Dropdown>
+                  <Dropdown isBordered>
                     <Dropdown.Trigger>
                       <Input
                         value={(condition.field && condition.field.substring(condition.field.lastIndexOf(".") + 1)) || "field"}
@@ -1192,7 +1326,7 @@ function DatasetData(props) {
                       selectionMode="single"
                       css={{ minWidth: "max-content" }}
                     >
-                      {fieldOptions.map((field) => (
+                      {fieldOptions.filter((f) => !f.isObject).map((field) => (
                         <Dropdown.Item key={field.value}>
                           <Container css={{ p: 0, m: 0 }}>
                             <Row>
@@ -1206,7 +1340,7 @@ function DatasetData(props) {
                     </Dropdown.Menu>
                   </Dropdown>
                   <Spacer x={0.2} />
-                  <Dropdown>
+                  <Dropdown isBordered>
                     <Dropdown.Trigger>
                       <Input
                         value={

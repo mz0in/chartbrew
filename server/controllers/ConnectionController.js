@@ -21,6 +21,14 @@ const drCacheController = require("./DataRequestCacheController");
 const RealtimeDatabase = require("../connections/RealtimeDatabase");
 const CustomerioConnection = require("../connections/CustomerioConnection");
 
+const getMomentObj = (timezone) => {
+  if (timezone) {
+    return (...args) => moment(...args).tz(timezone);
+  } else {
+    return (...args) => moment.utc(...args);
+  }
+};
+
 async function checkAndGetCache(connection_id, dataRequest) {
   // check if there is a cache available and valid
   try {
@@ -210,7 +218,7 @@ class ConnectionController {
       return this.testApi(data);
     } else if (data.type === "mongodb") {
       return this.testMongo(data);
-    } else if (data.type === "mysql" || data.type === "postgres" || data.type === "timescaledb") {
+    } else if (data.type === "mysql" || data.type === "postgres") {
       return this.testMysql(data);
     } else if (data.type === "realtimedb") {
       return this.testFirebase(data);
@@ -227,7 +235,6 @@ class ConnectionController {
 
   testApi(data) {
     const testOpt = this.getApiTestOptions(data);
-    testOpt.url = encodeURI(testOpt.url);
 
     return request(testOpt);
   }
@@ -257,18 +264,17 @@ class ConnectionController {
       });
   }
 
-  testMysql(data) {
-    return externalDbConnection(data)
-      .then((sequelize) => {
-        return sequelize.getQueryInterface().showAllSchemas();
-      })
-      .then((tables) => {
-        return Promise.resolve({
-          success: true,
-          tables,
-        });
-      })
-      .catch((err) => Promise.reject(err.message || err));
+  async testMysql(data) {
+    try {
+      const sqlDb = await externalDbConnection(data);
+      const tables = await sqlDb.getQueryInterface().showAllSchemas();
+      return Promise.resolve({
+        success: true,
+        tables,
+      });
+    } catch (err) {
+      return Promise.reject(err.message || err);
+    }
   }
 
   testFirebase(data) {
@@ -332,7 +338,6 @@ class ConnectionController {
             return request(this.getApiTestOptions(connection));
           case "postgres":
           case "mysql":
-          case "timescaledb":
             return externalDbConnection(connection);
           case "realtimedb":
           case "firestore":
@@ -358,7 +363,6 @@ class ConnectionController {
             return new Promise((resolve, reject) => reject(new Error(400)));
           case "postgres":
           case "mysql":
-          case "timescaledb":
             return new Promise((resolve) => resolve({ success: true }));
           case "realtimedb":
           case "firestore":
@@ -458,7 +462,7 @@ class ConnectionController {
           try {
             return new Promise((resolve) => resolve(JSON.parse(response.body)));
           } catch (e) {
-            return new Promise((resolve, reject) => reject(406));
+            return new Promise((resolve, reject) => reject(400));
           }
         } else {
           return new Promise((resolve, reject) => reject(response.statusCode));
@@ -500,11 +504,16 @@ class ConnectionController {
         return Function(`'use strict';return (mongoConnection, ObjectId) => mongoConnection.${formattedQuery}`)()(mongoConnection, ObjectId); // eslint-disable-line
       })
       .then(async (data) => {
+        let finalData = data;
+        // MonogoDB returns a plain number when count() is used, transform this into an object
+        if (formattedQuery.indexOf("count(") > -1) {
+          finalData = { count: data };
+        }
         // cache the data for later use
         const dataToCache = {
           dataRequest,
           responseData: {
-            data,
+            data: finalData,
           },
           connection_id: id,
         };
@@ -556,7 +565,7 @@ class ConnectionController {
       });
   }
 
-  async runApiRequest(id, chartId, dataRequest, getCache) {
+  async runApiRequest(id, chartId, dataRequest, getCache, filters, timezone = "") {
     if (getCache) {
       const drCache = await checkAndGetCache(id, dataRequest);
       if (drCache) return drCache;
@@ -591,25 +600,43 @@ class ConnectionController {
             if (chart.startDate && chart.endDate) {
               Object.keys(keysFound).forEach((q) => {
                 const value = keysFound[q];
-                let startDate = moment.utc(chart.startDate).startOf("day");
-                let endDate = moment.utc(chart.endDate).endOf("day");
+                let startDate = getMomentObj(timezone)(chart.startDate);
+                let endDate = getMomentObj(timezone)(chart.endDate);
 
                 if (value === "startDate" && chart.currentEndDate) {
-                  const timeDiff = endDate.diff(startDate, "days");
-                  endDate = moment.utc().endOf("day");
+                  const timeDiff = endDate.diff(startDate, chart.timeInterval);
+                  endDate = getMomentObj(timezone)().endOf(chart.timeInterval);
                   if (!chart.fixedStartDate) {
-                    startDate = endDate.clone().subtract(timeDiff, "days").startOf("day");
+                    startDate = endDate.clone()
+                      .subtract(timeDiff, chart.timeInterval)
+                      .startOf(chart.timeInterval);
                   }
-                  queryParams[q] = startDate.format(chart.dateVarsFormat || "");
                 } else if (value === "endDate" && chart.currentEndDate) {
-                  const timeDiff = endDate.diff(startDate, "days");
-                  endDate = moment.utc().endOf("day");
+                  const timeDiff = endDate.diff(startDate, chart.timeInterval);
+                  endDate = getMomentObj(timezone)().endOf(chart.timeInterval);
                   if (!chart.fixedStartDate) {
-                    startDate = endDate.clone().subtract(timeDiff, "days").startOf("day");
+                    startDate = endDate.clone()
+                      .subtract(timeDiff, chart.timeInterval)
+                      .startOf(chart.timeInterval);
                   }
-                  queryParams[q] = endDate.format(chart.dateVarsFormat || "");
                 } else {
                   queryParams[q] = chart[value];
+                }
+
+                if (filters && filters.length > 0) {
+                  const dateRangeFilter = filters.find((o) => o.type === "date");
+                  if (dateRangeFilter) {
+                    startDate = getMomentObj(timezone)(dateRangeFilter.startDate).startOf("day");
+                    endDate = getMomentObj(timezone)(dateRangeFilter.endDate);
+                  }
+                }
+
+                if (value === "startDate" && startDate) {
+                  queryParams[q] = startDate.format(chart.dateVarsFormat || "");
+                }
+
+                if (value === "endDate" && endDate) {
+                  queryParams[q] = endDate.format(chart.dateVarsFormat || "");
                 }
               });
             }
@@ -622,7 +649,7 @@ class ConnectionController {
         }
 
         const options = {
-          url: encodeURI(url),
+          url,
           method: dataRequest.method || "GET",
           headers: {},
           qs: queryParams,
@@ -714,7 +741,7 @@ class ConnectionController {
 
             return new Promise((resolve) => resolve(dataToCache));
           } catch (e) {
-            return new Promise((resolve, reject) => reject(406));
+            return new Promise((resolve, reject) => reject(400));
           }
         } else {
           return new Promise((resolve, reject) => reject(response.statusCode));

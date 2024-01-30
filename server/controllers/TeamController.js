@@ -94,7 +94,7 @@ class TeamController {
   }
 
   addProjectAccessToOwner(teamId, projectId) {
-    return db.TeamRole.findOne({ where: { team_id: teamId, role: "owner" } })
+    return db.TeamRole.findOne({ where: { team_id: teamId, role: "teamOwner" } })
       .then((teamRole) => {
         return this.addProjectAccess(teamId, teamRole.user_id, projectId);
       })
@@ -271,9 +271,9 @@ class TeamController {
               model: db.Project,
               include: [
                 { model: db.Chart, attributes: ["id"] },
-                { model: db.Connection, attributes: ["id"] },
               ],
             },
+            { model: db.Connection, attributes: ["id"] },
           ],
         });
       })
@@ -281,27 +281,23 @@ class TeamController {
         // filter the projects
         const newTeams = teams.map((team) => {
           const newTeam = team;
-          const allowedProjects = [];
-          let projectsRole = [];
-          if (team.TeamRoles) {
-            team.TeamRoles.map((role) => {
-              if (role.user_id === parseInt(userId, 10)) {
-                projectsRole = role.projects;
-              }
-              return role;
-            });
-          }
+          const teamRole = team.TeamRoles.find((role) => role.user_id === parseInt(userId, 10));
+          if (teamRole.role !== "teamOwner" && teamRole.role !== "teamAdmin") {
+            const allowedProjects = [];
+            let projectsRole = [];
+            projectsRole = teamRole.projects || [];
 
-          if (team.Projects) {
-            team.Projects.map((project) => {
-              if (_.indexOf(projectsRole, project.id) > -1) {
-                allowedProjects.push(project);
-              }
-              return project;
-            });
-          }
+            if (team.Projects) {
+              team.Projects.map((project) => {
+                if (_.indexOf(projectsRole, project.id) > -1) {
+                  allowedProjects.push(project);
+                }
+                return project;
+              });
+            }
 
-          newTeam.setDataValue("Projects", allowedProjects);
+            newTeam.setDataValue("Projects", allowedProjects);
+          }
           return newTeam;
         });
 

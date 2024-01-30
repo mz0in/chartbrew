@@ -1,66 +1,86 @@
 const DatasetController = require("../controllers/DatasetController");
 const TeamController = require("../controllers/TeamController");
-const ProjectController = require("../controllers/ProjectController");
-const ChartController = require("../controllers/ChartController");
 const verifyToken = require("../modules/verifyToken");
 const accessControl = require("../modules/accessControl");
 
 module.exports = (app) => {
   const datasetController = new DatasetController();
-  const projectController = new ProjectController();
   const teamController = new TeamController();
-  const chartController = new ChartController();
-  const root = "/project/:project_id/chart/:chart_id/dataset";
+  const root = "/team/:team_id/datasets";
 
-  const checkAccess = (req) => {
-    let gChart;
-    let gProject;
-    return chartController.findById(req.params.chart_id)
-      .then((chart) => {
-        if (chart.project_id !== parseInt(req.params.project_id, 10)) {
-          return new Promise((resolve, reject) => reject(new Error(401)));
-        }
-        gChart = chart;
-        return projectController.findById(req.params.project_id);
-      })
-      .then((project) => {
-        if (gChart.project_id !== project.id) {
-          return new Promise((resolve, reject) => reject(new Error(401)));
-        }
-        gProject = project;
+  const checkPermissions = (actionType = "readOwn") => {
+    return async (req, res, next) => {
+      const { team_id } = req.params;
 
-        if (req.params.id) {
-          return datasetController.findById(req.params.id);
+      // Fetch the TeamRole for the user
+      const teamRole = await teamController.getTeamRole(team_id, req.user.id);
+
+      if (!teamRole) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      let permission;
+      if (teamRole.role === "projectAdmin" && actionType.indexOf("Any") > -1) {
+        permission = accessControl.can(teamRole.role)[actionType.replace("Any", "Own")]("dataset");
+      } else {
+        permission = accessControl.can(teamRole.role)[actionType]("dataset");
+      }
+
+      if (!permission.granted) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { role, projects } = teamRole;
+
+      // Handle permissions for teamOwner and teamAdmin
+      if (["teamOwner", "teamAdmin"].includes(role)) {
+        return next();
+      }
+
+      if (role === "projectAdmin" || role === "projectViewer") {
+        const datasets = await datasetController.findByProjects(team_id, projects);
+        if (!datasets || datasets.length === 0) {
+          return res.status(404).json({ message: "No datasets found" });
         }
 
-        return teamController.getTeamRole(project.team_id, req.user.id);
-      })
-      .then((data) => {
-        if (!req.params.id) {
-          return Promise.resolve(data);
-        }
+        // save the projects in the user object
+        req.user.projects = projects;
 
-        if (data.chart_id !== gChart.id) {
-          return new Promise((resolve, reject) => reject(new Error(401)));
-        }
+        return next();
+      }
 
-        return teamController.getTeamRole(gProject.team_id, req.user.id);
-      });
+      return res.status(403).json({ message: "Access denied" });
+    };
   };
+
+  /*
+  ** Route to get all datasets
+  */
+  app.get(root, verifyToken, checkPermissions("readOwn"), (req, res) => {
+    return datasetController.findByTeam(req.params.team_id)
+      .then((datasets) => {
+        if (req.user.projects) {
+          const filteredDatasets = datasets.filter((dataset) => {
+            if (!dataset.project_ids) return false;
+            return dataset.project_ids.some((project_id) => {
+              return req.user.projects.includes(project_id);
+            });
+          });
+
+          return res.status(200).send(filteredDatasets);
+        }
+        return res.status(200).send(datasets);
+      })
+      .catch((err) => {
+        return res.status(400).send(err);
+      });
+  });
 
   /*
   ** Route to get a dataset by ID
   */
-  app.get(`${root}/:id`, verifyToken, (req, res) => {
-    return checkAccess(req)
-      .then((teamRole) => {
-        const permission = accessControl.can(teamRole.role).readAny("dataset");
-        if (!permission.granted) {
-          return new Promise((resolve, reject) => reject(new Error(401)));
-        }
-
-        return datasetController.findById(req.params.id);
-      })
+  app.get(`${root}/:id`, verifyToken, checkPermissions("readOwn"), (req, res) => {
+    return datasetController.findById(req.params.id)
       .then((dataset) => {
         return res.status(200).send(dataset);
       })
@@ -77,16 +97,12 @@ module.exports = (app) => {
   /*
   ** Route to create a new dataset
   */
-  app.post(root, verifyToken, (req, res) => {
-    return checkAccess(req)
-      .then((teamRole) => {
-        const permission = accessControl.can(teamRole.role).createAny("dataset");
-        if (!permission.granted) {
-          return new Promise((resolve, reject) => reject(new Error(401)));
-        }
+  app.post(root, verifyToken, checkPermissions("createAny"), (req, res) => {
+    if (req.user.projects) {
+      req.body.project_ids = req.user.projects;
+    }
 
-        return datasetController.create(req.body);
-      })
+    return datasetController.create(req.body)
       .then((dataset) => {
         return res.status(200).send(dataset);
       })
@@ -103,16 +119,8 @@ module.exports = (app) => {
   /*
   ** Route to get the datasets by Chart ID
   */
-  app.get(`${root}`, verifyToken, (req, res) => {
-    return checkAccess(req)
-      .then((teamRole) => {
-        const permission = accessControl.can(teamRole.role).readAny("dataset");
-        if (!permission.granted) {
-          return new Promise((resolve, reject) => reject(new Error(401)));
-        }
-
-        return datasetController.findByChart(req.params.chart_id);
-      })
+  app.get(`${root}`, verifyToken, checkPermissions("readyAny"), (req, res) => {
+    return datasetController.findByChart(req.params.chart_id)
       .then((dataset) => {
         return res.status(200).send(dataset);
       })
@@ -129,16 +137,8 @@ module.exports = (app) => {
   /*
   ** Route to update a dataset
   */
-  app.put(`${root}/:id`, verifyToken, (req, res) => {
-    return checkAccess(req)
-      .then((teamRole) => {
-        const permission = accessControl.can(teamRole.role).updateAny("dataset");
-        if (!permission.granted) {
-          return new Promise((resolve, reject) => reject(new Error(401)));
-        }
-
-        return datasetController.update(req.params.id, req.body);
-      })
+  app.put(`${root}/:id`, verifyToken, checkPermissions("updateAny"), (req, res) => {
+    return datasetController.update(req.params.id, req.body)
       .then((dataset) => {
         return res.status(200).send(dataset);
       })
@@ -155,15 +155,8 @@ module.exports = (app) => {
   /*
   ** Route to delete a dataset
   */
-  app.delete(`${root}/:id`, verifyToken, (req, res) => {
-    return checkAccess(req)
-      .then((teamRole) => {
-        const permission = accessControl.can(teamRole.role).deleteAny("dataset");
-        if (!permission.granted) {
-          return new Promise((resolve, reject) => reject(new Error(401)));
-        }
-        return datasetController.remove(req.params.id);
-      })
+  app.delete(`${root}/:id`, verifyToken, checkPermissions("deleteAny"), (req, res) => {
+    return datasetController.remove(req.params.id)
       .then((result) => {
         return res.status(200).send(result);
       })
@@ -176,18 +169,10 @@ module.exports = (app) => {
   /*
   ** Route to run the request attached to the dataset
   */
-  app.get(`${root}/:id/request`, verifyToken, (req, res) => {
-    return checkAccess(req)
-      .then((teamRole) => {
-        const permission = accessControl.can(teamRole.role).readAny("dataset");
-        if (!permission.granted) {
-          return new Promise((resolve, reject) => reject(new Error(401)));
-        }
-
-        return datasetController.runRequest(
-          req.params.id, req.params.chart_id, req.query.noSource, req.query.getCache
-        );
-      })
+  app.get(`${root}/:id/request`, verifyToken, checkPermissions("readAny"), (req, res) => {
+    return datasetController.runRequest(
+      req.params.id, req.params.chart_id, req.query.noSource, req.query.getCache
+    )
       .then((dataset) => {
         const newDataset = dataset;
         if (newDataset?.data) {
@@ -218,6 +203,20 @@ module.exports = (app) => {
           return res.status(404).send((err && err.message) || err);
         }
         return res.status(400).send((err && err.message) || err);
+      });
+  });
+  // ----------------------------------------------------
+
+  /*
+  ** Route to get the charts associated with the dataset
+  */
+  app.get(`${root}/:id/charts`, verifyToken, checkPermissions("readAny"), (req, res) => {
+    return datasetController.findRelatedCharts(req.params.id)
+      .then((charts) => {
+        return res.status(200).send(charts);
+      })
+      .catch((err) => {
+        return res.status(400).send(err);
       });
   });
   // ----------------------------------------------------

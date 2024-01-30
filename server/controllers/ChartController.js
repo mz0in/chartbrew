@@ -26,46 +26,14 @@ class ChartController {
   }
 
   create(data, user) {
-    let chartId;
-    return db.Chart.create(data)
+    return db.Chart.create({ ...data, chartDataUpdated: moment() })
       .then((chart) => {
-        chartId = chart.id;
-        if (data.Datasets || data.dataRequests) {
-          const createPromises = [];
-
-          // add the datasets creation
-          if (data.Datasets) {
-            for (const dataset of data.Datasets) {
-              if (!dataset.deleted) {
-                dataset.chart_id = chartId;
-                createPromises.push(this.datasetController.create(dataset));
-              }
-            }
-          }
-
-          // add the dataRequest creation
-          if (data.dataRequests) {
-            data.dataRequests.forEach((dataRequest) => {
-              createPromises.push(
-                this.dataRequestController.create({ ...dataRequest, chart_id: chart.id })
-              );
-            });
-          }
-
-          // add the update promise as well
-          createPromises.push(this.update(chart.id, { dashboardOrder: chart.id }));
-          return Promise.all(createPromises);
-        } else {
-          return this.update(chart.id, { dashboardOrder: chart.id });
-        }
-      })
-      .then(() => {
         // delete chart cache
         if (user) {
-          this.chartCache.remove(user.id, chartId);
+          this.chartCache.remove(user.id, chart.id);
         }
 
-        return this.findById(chartId);
+        return this.findById(chart.id);
       })
       .catch((error) => {
         return new Promise((resolve, reject) => reject(error));
@@ -85,8 +53,11 @@ class ChartController {
   findByProject(projectId) {
     return db.Chart.findAll({
       where: { project_id: projectId },
-      order: [["dashboardOrder", "ASC"], [db.Dataset, "order", "ASC"]],
-      include: [{ model: db.Dataset }, { model: db.Chartshare }],
+      order: [["dashboardOrder", "ASC"], [db.ChartDatasetConfig, "order", "ASC"]],
+      include: [
+        { model: db.ChartDatasetConfig, include: [{ model: db.Dataset }] },
+        { model: db.Chartshare }
+      ],
     })
       .then((charts) => {
         return charts;
@@ -99,8 +70,11 @@ class ChartController {
   findById(id, customQuery) {
     const query = {
       where: { id },
-      include: [{ model: db.Dataset }, { model: db.Chartshare }],
-      order: [[db.Dataset, "order", "ASC"]],
+      include: [
+        { model: db.ChartDatasetConfig, include: [{ model: db.Dataset }] },
+        { model: db.Chartshare }
+      ],
+      order: [[db.ChartDatasetConfig, "order", "ASC"]],
     };
 
     return db.Chart.findOne(customQuery || query)
@@ -121,10 +95,10 @@ class ChartController {
         .then(() => {
           const updatePromises = [];
 
-          if (data.Datasets || data.dataRequests) {
-            if (data.Datasets) {
+          if (data.ChartDatasets || data.dataRequests) {
+            if (data.ChartDatasets) {
               updatePromises
-                .push(this.updateDatasets(id, data.Datasets));
+                .push(this.updateDatasets(id, data.ChartDatasets));
             }
             if (data.dataRequests) {
               data.dataRequests.forEach((dataRequest) => {
@@ -155,10 +129,10 @@ class ChartController {
         }
 
         const updatePromises = [];
-        if (data.Datasets || data.dataRequests) {
-          if (data.Datasets) {
+        if (data.ChartDatasetConfigs || data.dataRequests) {
+          if (data.ChartDatasetConfigs) {
             const datasetsToUpdate = [];
-            for (const dataset of data.Datasets) {
+            for (const dataset of data.ChartDatasetConfigs) {
               if (!dataset.deleted && !dataset.id) {
                 dataset.chart_id = id;
                 updatePromises.push(this.datasetController.create(dataset));
@@ -169,7 +143,7 @@ class ChartController {
 
             if (datasetsToUpdate.length > 0) {
               updatePromises
-                .push(this.updateDatasets(id, data.Datasets));
+                .push(this.updateDatasets(id, data.ChartDatasetConfigs));
             }
           }
           if (data.dataRequests) {
@@ -321,7 +295,7 @@ class ChartController {
     return this.findById(id)
       .then(async (chart) => {
         gChart = chart;
-        if (!chart || !chart.Datasets || chart.Datasets.length === 0) {
+        if (!chart || !chart.ChartDatasetConfigs || chart.ChartDatasetConfigs.length === 0) {
           return new Promise((resolve, reject) => reject("The chart doesn't have any datasets"));
         }
 
@@ -342,19 +316,18 @@ class ChartController {
         }
 
         const requestPromises = [];
-        gChart.Datasets.map((dataset) => {
+        gChart.ChartDatasetConfigs.forEach((cdc) => {
           if (noSource && gCache && gCache.data) {
             requestPromises.push(
-              this.datasetController.runRequest(dataset.id, gChart.id, true, getCache)
+              this.datasetController.runRequest(cdc.Dataset.id, gChart.id, true, getCache)
             );
           } else {
             requestPromises.push(
               this.datasetController.runRequest(
-                dataset.id, gChart.id, false, getCache, filters, project.timezone
+                cdc.Dataset.id, gChart.id, false, getCache, filters, project.timezone
               )
             );
           }
-          return dataset;
         });
 
         return Promise.all(requestPromises);
@@ -416,8 +389,9 @@ class ChartController {
         if (chartData.conditionsOptions) {
           chartData.conditionsOptions.forEach((opt) => {
             if (opt.dataset_id) {
-              const dataset = gChart.Datasets.find((d) => d.id === opt.dataset_id);
-              if (dataset && dataset.conditions) {
+              const cdc = gChart.ChartDatasetConfigs.find((d) => d.dataset_id === opt.dataset_id);
+              const dataset = cdc?.Dataset;
+              if (dataset?.conditions) {
                 const newConditions = dataset.conditions.map((c) => {
                   const optCondition = opt.conditions.find((o) => o.field === c.field);
                   const values = (optCondition && optCondition.values) || [];
@@ -680,8 +654,8 @@ class ChartController {
   exportChartData(userId, chartIds, filters) {
     return db.Chart.findAll({
       where: { id: chartIds },
-      include: [{ model: db.Dataset }],
-      order: [[db.Dataset, "order", "ASC"]],
+      include: [{ model: db.ChartDatasetConfig, include: [{ model: db.Dataset }] }],
+      order: [[db.ChartDatasetConfig, "order", "ASC"]],
     })
       .then((charts) => {
         const dataPromises = [];
@@ -713,7 +687,7 @@ class ChartController {
 
                 return {
                   name: sheetName,
-                  datasets: chart.Datasets,
+                  datasets: chart.ChartDatasetConfigs,
                   data,
                 };
               })
@@ -762,6 +736,43 @@ class ChartController {
 
   removeShare(id) {
     return db.Chartshare.destroy({ where: { id } })
+      .catch((err) => {
+        return Promise.reject(err);
+      });
+  }
+
+  async createChartDatasetConfig(chartId, data) {
+    if (!data.dataset_id) {
+      return Promise.reject("Dataset ID is required");
+    }
+
+    const dataset = await db.Dataset.findByPk(data.dataset_id);
+
+    return db.ChartDatasetConfig.create({
+      ...data,
+      legend: dataset.legend,
+      chart_id: chartId,
+    })
+      .then((chartDatasetConfig) => {
+        return chartDatasetConfig;
+      })
+      .catch((err) => {
+        return Promise.reject(err);
+      });
+  }
+
+  updateChartDatasetConfig(id, data) {
+    return db.ChartDatasetConfig.update(data, { where: { id } })
+      .then(() => {
+        return db.ChartDatasetConfig.findByPk(id);
+      })
+      .catch((err) => {
+        return Promise.reject(err);
+      });
+  }
+
+  deleteChartDatasetConfig(id) {
+    return db.ChartDatasetConfig.destroy({ where: { id } })
       .catch((err) => {
         return Promise.reject(err);
       });

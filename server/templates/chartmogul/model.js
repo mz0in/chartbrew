@@ -1,9 +1,10 @@
 const request = require("request-promise");
 const moment = require("moment");
 
+const { chartColors } = require("../../charts/colors");
 const builder = require("./builder");
 
-const template = (token, key, dashboardOrder = 0) => ({
+const template = (token, key) => ({
   "Connections": [{
     "host": "https://api.chartmogul.com/v1",
     "dbName": null,
@@ -24,15 +25,284 @@ const template = (token, key, dashboardOrder = 0) => ({
     "active": true,
     "srv": false
   }],
+  "Datasets": [{
+    "td_id": 1,
+    "fillColor": "rgba(0,0,0,0)",
+    "patterns": [],
+    "conditions": null,
+    "fieldsSchema": {
+      "root.entries[].date": "date",
+      "root.entries[].mrr": "number",
+      "root.entries[].mrr-new-business": "number",
+      "root.entries[].mrr-expansion": "number",
+      "root.entries[].mrr-contraction": "number",
+      "root.entries[].mrr-churn": "number",
+      "root.entries[].mrr-reactivation": "number"
+    },
+    "excludedFields": null,
+    "query": null,
+    "xAxis": "root.entries[].date",
+    "xAxisOperation": null,
+    "yAxis": "root.entries[].mrr",
+    "yAxisOperation": "none",
+    "dateField": "root.entries[].date",
+    "datasetColor": chartColors.blue.rgb,
+    "fill": false,
+    "multiFill": false,
+    "dateFormat": null,
+    "legend": "MRR",
+    "pointRadius": null,
+    "formula": "${val / 100}",
+    "DataRequests": [{
+      "headers": {},
+      "body": "null",
+      "conditions": null,
+      "method": "GET",
+      "route": "/metrics/mrr?interval=day&start-date={{start_date}}&end-date={{end_date}}",
+      "useGlobalHeaders": true,
+      "query": null,
+      "pagination": false,
+      "items": "items",
+      "itemsLimit": 100,
+      "offset": "offset",
+      "template": null
+    }],
+  }, {
+    "td_id": 2,
+    "fillColor": "rgba(0,0,0,0)",
+    "patterns": [],
+    "conditions": null,
+    "fieldsSchema": {
+      "root.entries[].date": "date",
+      "root.entries[].arr": "number"
+    },
+    "excludedFields": null,
+    "query": null,
+    "xAxis": "root.entries[].date",
+    "xAxisOperation": null,
+    "yAxis": "root.entries[].arr",
+    "yAxisOperation": "none",
+    "dateField": "root.entries[].date",
+    "datasetColor": chartColors.blue.rgb,
+    "fill": false,
+    "multiFill": false,
+    "dateFormat": null,
+    "legend": "ARR",
+    "pointRadius": null,
+    "formula": "${val / 100}",
+    "DataRequests": [{
+      "headers": {},
+      "body": "null",
+      "conditions": null,
+      "method": "GET",
+      "route": "/metrics/arr?interval=day&start-date={{start_date}}&end-date={{end_date}}",
+      "useGlobalHeaders": true,
+      "query": null,
+      "pagination": false,
+      "items": "items",
+      "itemsLimit": 100,
+      "offset": "offset",
+      "template": null
+    }],
+  }, {
+    "td_id": 3,
+    "fillColor": "rgba(0,0,0,0)",
+    "patterns": [],
+    "conditions": null,
+    "fieldsSchema": {
+      "root.entries[].date": "date",
+      "root.entries[].customer-churn-rate": "number"
+    },
+    "excludedFields": null,
+    "query": null,
+    "xAxis": "root.entries[].date",
+    "xAxisOperation": null,
+    "yAxis": "root.entries[].customer-churn-rate",
+    "yAxisOperation": "none",
+    "dateField": "root.entries[].date",
+    "datasetColor": chartColors.blue.rgb,
+    "fill": false,
+    "multiFill": false,
+    "dateFormat": null,
+    "legend": "Customer Churn",
+    "pointRadius": null,
+    "formula": "{val}%",
+    "DataRequests": [{
+      "headers": {},
+      "body": "null",
+      "conditions": null,
+      "method": "GET",
+      "route": "/metrics/customer-churn-rate?start-date={{start_date}}&end-date={{end_date}}",
+      "useGlobalHeaders": true,
+      "query": null,
+      "pagination": false,
+      "items": "items",
+      "itemsLimit": 100,
+      "offset": "offset",
+      "template": null
+    }],
+  }, {
+    "td_id": 4,
+    "fillColor": "rgba(0,0,0,0)",
+    "patterns": [],
+    "conditions": null,
+    "fieldsSchema": {
+      "root.entries[].date": "date",
+      "root.entries[].mrr-churn-rate": "number"
+    },
+    "excludedFields": null,
+    "query": null,
+    "xAxis": "root.entries[].date",
+    "xAxisOperation": null,
+    "yAxis": "root.entries[].mrr-churn-rate",
+    "yAxisOperation": "none",
+    "dateField": "root.entries[].date",
+    "datasetColor": chartColors.amber.rgb,
+    "fill": false,
+    "multiFill": false,
+    "dateFormat": null,
+    "legend": "NET MRR Churn",
+    "pointRadius": null,
+    "formula": "{val}%",
+    "DataRequests": [{
+      "headers": {},
+      "body": "null",
+      "conditions": null,
+      "method": "GET",
+      "route": "/metrics/mrr-churn-rate?start-date={{start_date}}&end-date={{end_date}}",
+      "useGlobalHeaders": true,
+      "query": null,
+      "pagination": false,
+      "items": "items",
+      "itemsLimit": 100,
+      "offset": "offset",
+      "template": null
+    }],
+  }, {
+    "td_id": 5,
+    "fillColor": chartColors.blue.rgba(0.11),
+    "patterns": [],
+    "conditions": null,
+    "fieldsSchema": {
+      "root.entries[].date": "date",
+      "root.entries[].customers": "number"
+    },
+    "excludedFields": null,
+    "query": null,
+    "xAxis": "root.entries[].date",
+    "xAxisOperation": null,
+    "yAxis": "root.entries[].customers",
+    "yAxisOperation": "none",
+    "dateField": "root.entries[].date",
+    "datasetColor": chartColors.blue.rgb,
+    "fill": true,
+    "multiFill": false,
+    "dateFormat": null,
+    "legend": "Subscribers",
+    "pointRadius": null,
+    "formula": null,
+    "DataRequests": [{
+      "headers": {},
+      "body": "null",
+      "conditions": null,
+      "method": "GET",
+      "route": "/metrics/customer-count?interval=day&start-date={{start_date}}&end-date={{end_date}}",
+      "useGlobalHeaders": true,
+      "query": null,
+      "pagination": false,
+      "items": "items",
+      "itemsLimit": 100,
+      "offset": "offset",
+      "template": null
+    }],
+  }, {
+    "td_id": 6,
+    "fillColor": "rgba(0,0,0,0)",
+    "patterns": [],
+    "conditions": [],
+    "fieldsSchema": {
+      "root.entries[].date": "date",
+      "root.entries[].arpa": "number"
+    },
+    "excludedFields": null,
+    "query": null,
+    "xAxis": "root.entries[].date",
+    "xAxisOperation": null,
+    "yAxis": "root.entries[].arpa",
+    "yAxisOperation": "none",
+    "dateField": "root.entries[].date",
+    "datasetColor": chartColors.blue.rgb,
+    "fill": false,
+    "multiFill": false,
+    "dateFormat": null,
+    "legend": "ARPA",
+    "pointRadius": null,
+    "formula": "${val / 100}",
+    "DataRequests": [{
+      "headers": {},
+      "body": "null",
+      "conditions": null,
+      "method": "GET",
+      "route": "/metrics/arpa?interval=day&start-date={{start_date}}&end-date={{end_date}}",
+      "useGlobalHeaders": true,
+      "query": null,
+      "pagination": false,
+      "items": "items",
+      "itemsLimit": 100,
+      "offset": "offset",
+      "template": null
+    }],
+  }, {
+    "td_id": 7,
+    "fillColor": "rgba(0,0,0,0)",
+    "patterns": [],
+    "conditions": null,
+    "fieldsSchema": {
+      "root.entries[].date": "date",
+      "root.entries[].mrr": "number",
+      "root.entries[].mrr-new-business": "number",
+      "root.entries[].mrr-expansion": "number",
+      "root.entries[].mrr-contraction": "number",
+      "root.entries[].mrr-churn": "number",
+      "root.entries[].mrr-reactivation": "number"
+    },
+    "excludedFields": null,
+    "query": null,
+    "xAxis": "root.entries[].date",
+    "xAxisOperation": null,
+    "yAxis": "root.entries[].mrr",
+    "yAxisOperation": "count",
+    "dateField": "root.entries[].date",
+    "datasetColor": chartColors.blue.rgb,
+    "fill": false,
+    "multiFill": false,
+    "dateFormat": null,
+    "legend": "MRR in cents",
+    "pointRadius": null,
+    "formula": null,
+    "DataRequests": [{
+      "headers": {},
+      "body": "null",
+      "conditions": null,
+      "method": "GET",
+      "route": "/metrics/mrr?interval=month&start-date={{start_date}}&end-date={{end_date}}",
+      "useGlobalHeaders": true,
+      "query": null,
+      "pagination": false,
+      "items": "items",
+      "itemsLimit": 100,
+      "offset": "offset",
+      "template": null
+    }],
+  }],
   "Charts": [
     {
       "tid": 1,
       "name": "MRR",
-      "type": "line",
+      "type": "kpi",
       "subType": "lcTimeseries",
       "public": false,
       "chartSize": 1,
-      "dashboardOrder": dashboardOrder + 1,
       "displayLegend": false,
       "pointRadius": null,
       "startDate": moment().subtract(3, "months").startOf("day"),
@@ -42,10 +312,13 @@ const template = (token, key, dashboardOrder = 0) => ({
       "timeInterval": "month",
       "autoUpdate": 21600,
       "draft": false,
-      "mode": "kpi",
       "showGrowth": true,
-      "Datasets": [
+      "layout": {
+        "xxs": [0, 0, 2, 2], "xs": [0, 0, 6, 2], "sm": [0, 0, 3, 2], "md": [0, 0, 3, 2], "lg": [0, 0, 3, 2]
+      },
+      "ChartDatasetConfigs": [
         {
+          "td_id": 1,
           "fillColor": "rgba(0,0,0,0)",
           "patterns": [],
           "conditions": null,
@@ -59,33 +332,13 @@ const template = (token, key, dashboardOrder = 0) => ({
             "root.entries[].mrr-reactivation": "number"
           },
           "excludedFields": null,
-          "query": null,
-          "xAxis": "root.entries[].date",
-          "xAxisOperation": null,
-          "yAxis": "root.entries[].mrr",
-          "yAxisOperation": "none",
-          "dateField": "root.entries[].date",
-          "datasetColor": "rgba(74, 74, 74, 1)",
+          "datasetColor": chartColors.blue.rgb,
           "fill": false,
           "multiFill": false,
           "dateFormat": null,
           "legend": "MRR",
           "pointRadius": null,
           "formula": "${val / 100}",
-          "DataRequests": [{
-            "headers": {},
-            "body": "null",
-            "conditions": null,
-            "method": "GET",
-            "route": "/metrics/mrr?interval=day&start-date={{start_date}}&end-date={{end_date}}",
-            "useGlobalHeaders": true,
-            "query": null,
-            "pagination": false,
-            "items": "items",
-            "itemsLimit": 100,
-            "offset": "offset",
-            "template": null
-          }],
         }
       ]
     },
@@ -96,7 +349,6 @@ const template = (token, key, dashboardOrder = 0) => ({
       "subType": "lcTimeseries",
       "public": false,
       "chartSize": 2,
-      "dashboardOrder": dashboardOrder + 2,
       "displayLegend": false,
       "pointRadius": null,
       "startDate": moment().subtract(1, "year").startOf("day"),
@@ -108,9 +360,13 @@ const template = (token, key, dashboardOrder = 0) => ({
       "draft": false,
       "mode": "kpichart",
       "showGrowth": true,
-      "Datasets": [
+      "layout": {
+        "xxs": [0, 4, 2, 2], "xs": [0, 4, 6, 2], "sm": [3, 0, 5, 2], "md": [3, 0, 4, 2], "lg": [3, 0, 5, 2]
+      },
+      "ChartDatasetConfigs": [
         {
-          "fillColor": "rgba(74, 74, 74, 0.11)",
+          "td_id": 1,
+          "fillColor": chartColors.blue.rgba(0.11),
           "patterns": [],
           "conditions": null,
           "fieldsSchema": {
@@ -123,44 +379,23 @@ const template = (token, key, dashboardOrder = 0) => ({
             "root.entries[].mrr-reactivation": "number"
           },
           "excludedFields": null,
-          "query": null,
-          "xAxis": "root.entries[].date",
-          "xAxisOperation": null,
-          "yAxis": "root.entries[].mrr",
-          "yAxisOperation": "none",
-          "dateField": "root.entries[].date",
-          "datasetColor": "rgba(74, 74, 74, 1)",
-          "fill": true,
+          "datasetColor": chartColors.blue.rgb,
+          "fill": false,
           "multiFill": false,
           "dateFormat": null,
           "legend": "MRR",
           "pointRadius": null,
           "formula": "{val / 100}",
-          "DataRequests": [{
-            "headers": {},
-            "body": "null",
-            "conditions": null,
-            "method": "GET",
-            "route": "/metrics/mrr?interval=day&start-date={{start_date}}&end-date={{end_date}}",
-            "useGlobalHeaders": true,
-            "query": null,
-            "pagination": false,
-            "items": "items",
-            "itemsLimit": 100,
-            "offset": "offset",
-            "template": null
-          }],
         }
       ]
     },
     {
       "tid": 3,
       "name": "Anual Recurring Revenue",
-      "type": "line",
+      "type": "kpi",
       "subType": "lcTimeseries",
       "public": false,
       "chartSize": 1,
-      "dashboardOrder": dashboardOrder + 3,
       "displayLegend": false,
       "pointRadius": null,
       "startDate": moment().subtract(1, "year").startOf("day"),
@@ -170,10 +405,13 @@ const template = (token, key, dashboardOrder = 0) => ({
       "timeInterval": "month",
       "autoUpdate": 21600,
       "draft": false,
-      "mode": "kpi",
       "showGrowth": true,
-      "Datasets": [
+      "layout": {
+        "xxs": [0, 2, 2, 2], "xs": [0, 2, 6, 2], "sm": [0, 2, 3, 2], "md": [0, 2, 3, 2], "lg": [0, 2, 3, 2]
+      },
+      "ChartDatasetConfigs": [
         {
+          "td_id": 2,
           "fillColor": "rgba(0,0,0,0)",
           "patterns": [],
           "conditions": null,
@@ -182,44 +420,23 @@ const template = (token, key, dashboardOrder = 0) => ({
             "root.entries[].arr": "number"
           },
           "excludedFields": null,
-          "query": null,
-          "xAxis": "root.entries[].date",
-          "xAxisOperation": null,
-          "yAxis": "root.entries[].arr",
-          "yAxisOperation": "none",
-          "dateField": "root.entries[].date",
-          "datasetColor": "#17BECF",
+          "datasetColor": chartColors.blue.rgb,
           "fill": false,
           "multiFill": false,
           "dateFormat": null,
           "legend": "ARR",
           "pointRadius": null,
           "formula": "${val / 100}",
-          "DataRequests": [{
-            "headers": {},
-            "body": "null",
-            "conditions": null,
-            "method": "GET",
-            "route": "/metrics/arr?interval=day&start-date={{start_date}}&end-date={{end_date}}",
-            "useGlobalHeaders": true,
-            "query": null,
-            "pagination": false,
-            "items": "items",
-            "itemsLimit": 100,
-            "offset": "offset",
-            "template": null
-          }],
         }
       ]
     },
     {
       "tid": 4,
       "name": "Churn Rate",
-      "type": "line",
+      "type": "kpi",
       "subType": "lcTimeseries",
       "public": false,
       "chartSize": 1,
-      "dashboardOrder": dashboardOrder + 4,
       "displayLegend": false,
       "pointRadius": null,
       "startDate": moment().subtract(1, "year").startOf("day"),
@@ -229,9 +446,12 @@ const template = (token, key, dashboardOrder = 0) => ({
       "timeInterval": "month",
       "autoUpdate": 21600,
       "draft": false,
-      "mode": "kpi",
-      "Datasets": [
+      "layout": {
+        "xxs": [0, 6, 2, 2], "xs": [0, 8, 6, 2], "sm": [0, 4, 3, 2], "md": [7, 0, 3, 2], "lg": [8, 0, 4, 2]
+      },
+      "ChartDatasetConfigs": [
         {
+          "td_id": 3,
           "fillColor": "rgba(0,0,0,0)",
           "patterns": [],
           "conditions": null,
@@ -240,35 +460,16 @@ const template = (token, key, dashboardOrder = 0) => ({
             "root.entries[].customer-churn-rate": "number"
           },
           "excludedFields": null,
-          "query": null,
-          "xAxis": "root.entries[].date",
-          "xAxisOperation": null,
-          "yAxis": "root.entries[].customer-churn-rate",
-          "yAxisOperation": "none",
-          "dateField": "root.entries[].date",
-          "datasetColor": "#1F77B4",
+          "datasetColor": chartColors.blue.rgb,
           "fill": false,
           "multiFill": false,
           "dateFormat": null,
           "legend": "Customer Churn",
           "pointRadius": null,
           "formula": "{val}%",
-          "DataRequests": [{
-            "headers": {},
-            "body": "null",
-            "conditions": null,
-            "method": "GET",
-            "route": "/metrics/customer-churn-rate?start-date={{start_date}}&end-date={{end_date}}",
-            "useGlobalHeaders": true,
-            "query": null,
-            "pagination": false,
-            "items": "items",
-            "itemsLimit": 100,
-            "offset": "offset",
-            "template": null
-          }],
         },
         {
+          "td_id": 4,
           "fillColor": "rgba(0,0,0,0)",
           "patterns": [],
           "conditions": null,
@@ -277,33 +478,14 @@ const template = (token, key, dashboardOrder = 0) => ({
             "root.entries[].mrr-churn-rate": "number"
           },
           "excludedFields": null,
-          "query": null,
-          "xAxis": "root.entries[].date",
-          "xAxisOperation": null,
-          "yAxis": "root.entries[].mrr-churn-rate",
-          "yAxisOperation": "none",
           "dateField": "root.entries[].date",
-          "datasetColor": "#FF7F0E",
+          "datasetColor": chartColors.amber.rgb,
           "fill": false,
           "multiFill": false,
           "dateFormat": null,
           "legend": "NET MRR Churn",
           "pointRadius": null,
           "formula": "{val}%",
-          "DataRequests": [{
-            "headers": {},
-            "body": "null",
-            "conditions": null,
-            "method": "GET",
-            "route": "/metrics/mrr-churn-rate?start-date={{start_date}}&end-date={{end_date}}",
-            "useGlobalHeaders": true,
-            "query": null,
-            "pagination": false,
-            "items": "items",
-            "itemsLimit": 100,
-            "offset": "offset",
-            "template": null
-          }],
         }
       ]
     },
@@ -314,7 +496,6 @@ const template = (token, key, dashboardOrder = 0) => ({
       "subType": "lcTimeseries",
       "public": false,
       "chartSize": 2,
-      "dashboardOrder": dashboardOrder + 5,
       "displayLegend": false,
       "pointRadius": null,
       "startDate": moment().subtract(1, "year").startOf("day"),
@@ -326,9 +507,13 @@ const template = (token, key, dashboardOrder = 0) => ({
       "draft": false,
       "mode": "kpichart",
       "showGrowth": true,
-      "Datasets": [
+      "layout": {
+        "xxs": [0, 12, 2, 2], "xs": [0, 6, 6, 2], "sm": [3, 2, 5, 2], "md": [3, 2, 4, 2], "lg": [3, 2, 5, 2]
+      },
+      "ChartDatasetConfigs": [
         {
-          "fillColor": "rgba(31, 119, 180, 0.11)",
+          "td_id": 5,
+          "fillColor": chartColors.blue.rgba(0.11),
           "patterns": [],
           "conditions": null,
           "fieldsSchema": {
@@ -336,44 +521,23 @@ const template = (token, key, dashboardOrder = 0) => ({
             "root.entries[].customers": "number"
           },
           "excludedFields": null,
-          "query": null,
-          "xAxis": "root.entries[].date",
-          "xAxisOperation": null,
-          "yAxis": "root.entries[].customers",
-          "yAxisOperation": "none",
-          "dateField": "root.entries[].date",
-          "datasetColor": "#1F77B4",
+          "datasetColor": chartColors.blue.rgb,
           "fill": true,
           "multiFill": false,
           "dateFormat": null,
           "legend": "Subscribers",
           "pointRadius": null,
           "formula": null,
-          "DataRequests": [{
-            "headers": {},
-            "body": "null",
-            "conditions": null,
-            "method": "GET",
-            "route": "/metrics/customer-count?interval=day&start-date={{start_date}}&end-date={{end_date}}",
-            "useGlobalHeaders": true,
-            "query": null,
-            "pagination": false,
-            "items": "items",
-            "itemsLimit": 100,
-            "offset": "offset",
-            "template": null
-          }],
         }
       ]
     },
     {
       "tid": 6,
       "name": "Avg Revenue Per Account",
-      "type": "line",
+      "type": "kpi",
       "subType": "lcTimeseries",
       "public": false,
       "chartSize": 1,
-      "dashboardOrder": dashboardOrder + 6,
       "displayLegend": false,
       "pointRadius": null,
       "startDate": moment().subtract(1, "year").startOf("day"),
@@ -383,10 +547,13 @@ const template = (token, key, dashboardOrder = 0) => ({
       "timeInterval": "month",
       "autoUpdate": 21600,
       "draft": false,
-      "mode": "kpi",
       "showGrowth": true,
-      "Datasets": [
+      "layout": {
+        "xxs": [0, 8, 2, 2], "xs": [0, 10, 6, 2], "sm": [3, 4, 3, 2], "md": [7, 2, 3, 2], "lg": [8, 2, 3, 2]
+      },
+      "ChartDatasetConfigs": [
         {
+          "td_id": 6,
           "fillColor": "rgba(0,0,0,0)",
           "patterns": [],
           "conditions": [],
@@ -395,33 +562,13 @@ const template = (token, key, dashboardOrder = 0) => ({
             "root.entries[].arpa": "number"
           },
           "excludedFields": null,
-          "query": null,
-          "xAxis": "root.entries[].date",
-          "xAxisOperation": null,
-          "yAxis": "root.entries[].arpa",
-          "yAxisOperation": "none",
-          "dateField": "root.entries[].date",
-          "datasetColor": "#7F7F7F",
+          "datasetColor": chartColors.blue.rgb,
           "fill": false,
           "multiFill": false,
           "dateFormat": null,
           "legend": "ARPA",
           "pointRadius": null,
           "formula": "${val / 100}",
-          "DataRequests": [{
-            "headers": {},
-            "body": "null",
-            "conditions": null,
-            "method": "GET",
-            "route": "/metrics/arpa?interval=day&start-date={{start_date}}&end-date={{end_date}}",
-            "useGlobalHeaders": true,
-            "query": null,
-            "pagination": false,
-            "items": "items",
-            "itemsLimit": 100,
-            "offset": "offset",
-            "template": null
-          }],
         }
       ]
     },
@@ -432,7 +579,6 @@ const template = (token, key, dashboardOrder = 0) => ({
       "subType": "timeseries",
       "public": false,
       "chartSize": 3,
-      "dashboardOrder": dashboardOrder + 7,
       "displayLegend": false,
       "pointRadius": null,
       "startDate": moment().subtract(6, "months").startOf(),
@@ -443,8 +589,12 @@ const template = (token, key, dashboardOrder = 0) => ({
       "autoUpdate": 21600,
       "draft": false,
       "mode": "chart",
-      "Datasets": [
+      "layout": {
+        "xxs": [0, 10, 2, 2], "xs": [0, 12, 6, 2], "sm": [0, 6, 8, 3], "md": [0, 4, 7, 3], "lg": [0, 4, 7, 3]
+      },
+      "ChartDatasetConfigs": [
         {
+          "td_id": 7,
           "fillColor": "rgba(0,0,0,0)",
           "patterns": [],
           "conditions": null,
@@ -458,33 +608,13 @@ const template = (token, key, dashboardOrder = 0) => ({
             "root.entries[].mrr-reactivation": "number"
           },
           "excludedFields": null,
-          "query": null,
-          "xAxis": "root.entries[].date",
-          "xAxisOperation": null,
-          "yAxis": "root.entries[].mrr",
-          "yAxisOperation": "count",
-          "dateField": "root.entries[].date",
-          "datasetColor": "#CFECF9",
+          "datasetColor": chartColors.blue.rgb,
           "fill": false,
           "multiFill": false,
           "dateFormat": null,
           "legend": "MRR in cents",
           "pointRadius": null,
           "formula": null,
-          "DataRequests": [{
-            "headers": {},
-            "body": "null",
-            "conditions": null,
-            "method": "GET",
-            "route": "/metrics/mrr?interval=month&start-date={{start_date}}&end-date={{end_date}}",
-            "useGlobalHeaders": true,
-            "query": null,
-            "pagination": false,
-            "items": "items",
-            "itemsLimit": 100,
-            "offset": "offset",
-            "template": null
-          }],
         }
       ]
     },
@@ -493,7 +623,7 @@ const template = (token, key, dashboardOrder = 0) => ({
 
 module.exports.template = template;
 
-module.exports.build = async (projectId, {
+module.exports.build = async (teamId, projectId, {
   token, key, charts, connection_id,
 }, dashboardOrder) => {
   if ((!token || !key) && !connection_id) return Promise.reject("Missing required authentication arguments");
@@ -524,7 +654,7 @@ module.exports.build = async (projectId, {
     return Promise.reject(new Error("Request cannot be authenticated"));
   }
 
-  return builder(projectId, token, key, dashboardOrder, template, charts, connection_id)
+  return builder(teamId, projectId, token, key, dashboardOrder, template, charts, connection_id)
     .catch((err) => {
       if (err && err.message) {
         return Promise.reject(err.message);

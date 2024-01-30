@@ -23,16 +23,20 @@ class ProjectController {
   findById(id) {
     return db.Project.findOne({
       where: { id },
-      order: [[db.Chart, db.Dataset, "order", "ASC"]],
+      order: [[db.Chart, "dashboardOrder", "ASC"], [db.Chart, db.ChartDatasetConfig, "order", "ASC"]],
       include: [
-        { model: db.Connection, attributes: ["id", "project_id", "name", "type", "subType"] },
-        { model: db.Chart, include: [{ model: db.Dataset }] }
+        {
+          model: db.Chart,
+          include: [{
+            model: db.ChartDatasetConfig, include: [{ model: db.Dataset }]
+          }]
+        }
       ],
     })
       .then((project) => {
-        if (!project) {
-          return new Promise((resolve, reject) => reject(new Error(404)));
-        }
+        // if (!project) {
+        //   throw new Error(404);
+        // }
         return project;
       })
       .catch((error) => {
@@ -61,7 +65,7 @@ class ProjectController {
           where: {
             id: { [Op.in]: idArray },
           },
-          include: [{ model: db.ProjectRole }, { model: db.Chart, attributes: ["id"] }],
+          include: [{ model: db.ProjectRole }, { model: db.Chart, attributes: ["id", "layout"] }],
         });
       })
       .then((projects) => {
@@ -78,7 +82,7 @@ class ProjectController {
     return db.Project.create(data)
       .then((project) => {
         newProject = project;
-        return this.updateProjectRole(project.id, userId, "owner");
+        return this.updateProjectRole(project.id, userId, "teamOwner");
       })
       .then(() => {
         const brewName = `${newProject.name.replace(/[\W_]+/g, "_")}_${newProject.id}`;
@@ -170,6 +174,7 @@ class ProjectController {
   getTeamProjects(teamId) {
     return db.Project.findAll({
       where: { team_id: teamId },
+      include: [{ model: db.Chart, attributes: ["id", "layout"] }],
     })
       .then((projects) => {
         return projects;
@@ -187,7 +192,7 @@ class ProjectController {
           model: db.Chart,
           attributes: { exclude: ["query"] },
           where: { onReport: true },
-          include: [{ model: db.Dataset, order: [["order", "ASC"]] }],
+          include: [{ model: db.ChartDatasetConfig, order: [["order", "ASC"]] }],
         },
         {
           model: db.Team,
@@ -205,19 +210,10 @@ class ProjectController {
       });
   }
 
-  generateTemplate(projectId, data, template) {
-    return db.Chart.findAll({
-      where: { project_id: projectId },
-      order: [["dashboardOrder", "DESC"]],
-      limit: 1,
-    })
-      .then((charts) => {
-        let dashboardOrder = 0;
-        if (charts && charts.length > 0) {
-          dashboardOrder = charts[0].dashboardOrder;
-        }
-        return templateModels[template].build(projectId, data, dashboardOrder);
-      })
+  async generateTemplate(projectId, data, template) {
+    const project = await this.findById(projectId);
+
+    return templateModels[template].build(project.team_id, projectId, data)
       .then((result) => {
         return result;
       })

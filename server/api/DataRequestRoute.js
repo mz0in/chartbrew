@@ -1,148 +1,49 @@
 const DataRequestController = require("../controllers/DataRequestController");
 const TeamController = require("../controllers/TeamController");
-const ProjectController = require("../controllers/ProjectController");
 const verifyToken = require("../modules/verifyToken");
-const accessControl = require("../modules/accessControl");
-const ChartController = require("../controllers/ChartController");
 const DatasetController = require("../controllers/DatasetController");
 
 module.exports = (app) => {
   const dataRequestController = new DataRequestController();
   const teamController = new TeamController();
-  const projectController = new ProjectController();
-  const chartController = new ChartController();
   const datasetController = new DatasetController();
 
-  const root = "/project/:project_id/chart/:chart_id/dataRequest";
+  const root = "/team/:team_id/datasets/:dataset_id/dataRequests";
 
-  const checkAccess = (req) => {
-    let gProject;
-    let gChart;
-    return projectController.findById(req.params.project_id)
-      .then((project) => {
-        gProject = project;
+  const checkPermissions = async (req, res, next) => {
+    const { team_id } = req.params;
 
-        return chartController.findById(req.params.chart_id);
-      })
-      .then((chart) => {
-        if (chart.project_id !== gProject.id) {
-          return new Promise((resolve, reject) => reject(new Error(401)));
-        }
-        gChart = chart;
+    // Fetch the TeamRole for the user
+    const teamRole = await teamController.getTeamRole(team_id, req.user.id);
 
-        if (req.params.id) {
-          return dataRequestController.findById(req.params.id);
-        }
+    if (!teamRole) {
+      return res.status(403).json({ message: "Access denied" });
+    }
 
-        return teamController.getTeamRole(gProject.team_id, req.user.id);
-      })
-      .then((data) => {
-        if (!req.params.id) return Promise.resolve(data);
+    const { role, projects } = teamRole;
 
-        return datasetController.findById(data.dataset_id);
-      })
-      .then((data) => {
-        if (!req.params.id) return Promise.resolve(data);
+    // Handle permissions for teamOwner and teamAdmin
+    if (["teamOwner", "teamAdmin"].includes(role)) {
+      return next();
+    }
 
-        if (data.chart_id !== gChart.id) {
-          return new Promise((resolve, reject) => reject(new Error(401)));
-        }
+    if (role === "projectAdmin" || role === "projectViewer") {
+      const connections = await datasetController.findByProjects(team_id, projects);
+      if (!connections || connections.length === 0) {
+        return res.status(404).json({ message: "No connections found" });
+      }
 
-        return teamController.getTeamRole(gProject.team_id, req.user.id);
-      });
+      return next();
+    }
+
+    return res.status(403).json({ message: "Access denied" });
   };
 
   /*
   ** Route to create a new Data request
   */
-  app.post(`${root}`, verifyToken, (req, res) => {
-    return checkAccess(req)
-      .then((teamRole) => {
-        const permission = accessControl.can(teamRole.role).createAny("dataRequest");
-        if (!permission.granted) {
-          return new Promise((resolve, reject) => reject(new Error(401)));
-        }
-
-        return dataRequestController.create(req.body);
-      })
-      .then((dataRequest) => {
-        return res.status(200).send(dataRequest);
-      })
-      .catch((error) => {
-        if (error.message === "401") {
-          return res.status(401).send({ error: "Not authorized" });
-        }
-
-        return res.status(400).send(error);
-      });
-  });
-  // -------------------------------------------------
-
-  /*
-  ** Route to get Data request by ID
-  */
-  app.get(`${root}/:id`, verifyToken, (req, res) => {
-    return checkAccess(req)
-      .then((teamRole) => {
-        const permission = accessControl.can(teamRole.role).readAny("dataRequest");
-        if (!permission.granted) {
-          return new Promise((resolve, reject) => reject(new Error(401)));
-        }
-
-        return dataRequestController.findById();
-      })
-      .then((dataRequest) => {
-        return res.status(200).send(dataRequest);
-      })
-      .catch((error) => {
-        if (error.message === "401") {
-          return res.status(401).send({ error: "Not authorized" });
-        }
-
-        return res.status(400).send(error);
-      });
-  });
-  // -------------------------------------------------
-
-  /*
-  ** Route to update the dataRequest
-  */
-  app.put(`${root}/:id`, verifyToken, (req, res) => {
-    return checkAccess(req)
-      .then((teamRole) => {
-        const permission = accessControl.can(teamRole.role).updateAny("dataRequest");
-        if (!permission.granted) {
-          return new Promise((resolve, reject) => reject(new Error(401)));
-        }
-
-        return dataRequestController.update(req.params.id, req.body);
-      })
-      .then((dataRequest) => {
-        return res.status(200).send(dataRequest);
-      })
-      .catch((error) => {
-        if (error.message === "401") {
-          return res.status(401).send({ error: "Not authorized" });
-        }
-
-        return res.status(400).send(error);
-      });
-  });
-  // -------------------------------------------------
-
-  /*
-  ** Route to get the api request by the chartId
-  */
-  app.get(`${root}`, verifyToken, (req, res) => {
-    return checkAccess(req)
-      .then((teamRole) => {
-        const permission = accessControl.can(teamRole.role).readAny("dataRequest");
-        if (!permission.granted) {
-          return new Promise((resolve, reject) => reject(new Error(401)));
-        }
-
-        return dataRequestController.findByChart(req.params.chart_id);
-      })
+  app.post(`${root}`, verifyToken, checkPermissions, (req, res) => {
+    return dataRequestController.create(req.body)
       .then((dataRequest) => {
         return res.status(200).send(dataRequest);
       })
@@ -159,16 +60,8 @@ module.exports = (app) => {
   /*
   ** Route to get a Data Request by dataset ID
   */
-  app.get(`${root}/dataset/:datasetId`, verifyToken, (req, res) => {
-    return checkAccess(req)
-      .then((teamRole) => {
-        const permission = accessControl.can(teamRole.role).readAny("dataRequest");
-        if (!permission.granted) {
-          return new Promise((resolve, reject) => reject(new Error(401)));
-        }
-
-        return dataRequestController.findByDataset(req.params.datasetId);
-      })
+  app.get(`${root}`, verifyToken, checkPermissions, (req, res) => {
+    return dataRequestController.findByDataset(req.params.dataset_id)
       .then((dataRequests) => {
         return res.status(200).send(dataRequests);
       })
@@ -183,18 +76,46 @@ module.exports = (app) => {
   // -------------------------------------------------
 
   /*
-  ** Route to delete a Data Request by ID
+  ** Route to get Data request by ID
   */
-  app.delete(`${root}/:id`, verifyToken, (req, res) => {
-    return checkAccess(req)
-      .then((teamRole) => {
-        const permission = accessControl.can(teamRole.role).deleteAny("dataRequest");
-        if (!permission.granted) {
-          return new Promise((resolve, reject) => reject(new Error(401)));
+  app.get(`${root}/:id`, verifyToken, checkPermissions, (req, res) => {
+    return dataRequestController.findById()
+      .then((dataRequest) => {
+        return res.status(200).send(dataRequest);
+      })
+      .catch((error) => {
+        if (error.message === "401") {
+          return res.status(401).send({ error: "Not authorized" });
         }
 
-        return dataRequestController.delete(req.params.id);
+        return res.status(400).send(error);
+      });
+  });
+  // -------------------------------------------------
+
+  /*
+  ** Route to update the dataRequest
+  */
+  app.put(`${root}/:id`, verifyToken, checkPermissions, (req, res) => {
+    return dataRequestController.update(req.params.id, req.body)
+      .then((dataRequest) => {
+        return res.status(200).send(dataRequest);
       })
+      .catch((error) => {
+        if (error.message === "401") {
+          return res.status(401).send({ error: "Not authorized" });
+        }
+
+        return res.status(400).send(error);
+      });
+  });
+  // -------------------------------------------------
+
+  /*
+  ** Route to delete a Data Request by ID
+  */
+  app.delete(`${root}/:id`, verifyToken, checkPermissions, (req, res) => {
+    return dataRequestController.delete(req.params.id)
       .then((dataRequest) => {
         return res.status(200).send(dataRequest);
       })
@@ -211,18 +132,10 @@ module.exports = (app) => {
   /*
   ** Route to run a request
   */
-  app.post(`${root}/:id/request`, verifyToken, (req, res) => {
-    return checkAccess(req)
-      .then((teamRole) => {
-        const permission = accessControl.can(teamRole.role).updateAny("dataRequest");
-        if (!permission.granted) {
-          return new Promise((resolve, reject) => reject(new Error(401)));
-        }
-
-        return dataRequestController.runRequest(
-          req.params.id, req.params.chart_id, req.body.noSource, req.body.getCache
-        );
-      })
+  app.post(`${root}/:id/request`, verifyToken, checkPermissions, (req, res) => {
+    return dataRequestController.runRequest(
+      req.params.id, req.params.chart_id, req.body.noSource, req.body.getCache
+    )
       .then((dataRequest) => {
         const newDataRequest = dataRequest;
         // reduce the size of the returned data. No point in showing thousands of objects

@@ -14,30 +14,54 @@ module.exports = (app) => {
   const projectController = new ProjectController();
   const teamController = new TeamController();
 
-  const checkAccess = (req) => {
-    const teamId = req.params.team_id || req.body.team_id || req.query.team_id;
+  const checkPermissions = (actionType = "readOwn") => {
+    return async (req, res, next) => {
+      const projectId = req.params.id;
+      const teamId = req.params.team_id || req.body?.team_id;
 
-    if (req.params.id) {
-      return projectController.findById(req.params.id)
-        .then((project) => {
-          return teamController.getTeamRole(project.team_id, req.user.id);
-        })
-        .then((teamRole) => {
-          // the owner has access to all the projects
-          if (teamRole.role === "owner") return teamRole;
+      let teamRole;
+      let project;
 
-          // otherwise, check if the team role contains access to the right project
-          if (!teamRole.projects) return Promise.reject(401);
-          const filteredProjects = teamRole.projects.filter((o) => `${o}` === `${req.params.id}`);
+      if (projectId) {
+        project = await projectController.findById(projectId);
+        if (!project) return res.status(404).json({ message: "Project not found" });
+      }
+
+      if (teamId) {
+        teamRole = await teamController.getTeamRole(teamId, req.user.id);
+      } else {
+        teamRole = await teamController.getTeamRole(project.team_id, req.user.id);
+      }
+
+      if (["teamOwner", "teamAdmin"].includes(teamRole.role)) {
+        const permission = accessControl.can(teamRole.role)[actionType]("project");
+        if (!permission.granted) {
+          return res.status(403).json({ message: "Access denied" });
+        }
+
+        return next();
+      }
+
+      if (teamRole?.projects?.length > 0) {
+        if (projectId) {
+          const filteredProjects = teamRole.projects.filter((o) => `${o}` === `${projectId}`);
           if (filteredProjects.length === 0) {
-            return Promise.reject(401);
+            return res.status(403).json({ message: "Access denied" });
           }
+        }
 
-          return teamRole;
-        });
-    }
+        const permission = accessControl.can(teamRole.role)[actionType]("project");
+        if (!permission.granted) {
+          return res.status(403).json({ message: "Access denied" });
+        }
 
-    return teamController.getTeamRole(teamId, req.user.id);
+        req.user.projects = teamRole.projects;
+
+        return next();
+      }
+
+      return res.status(403).json({ message: "Access denied" });
+    };
   };
 
   /*
@@ -61,16 +85,8 @@ module.exports = (app) => {
   /*
   ** Route to create a project
   */
-  app.post("/project", verifyToken, (req, res) => {
-    return checkAccess(req)
-      .then((teamRole) => {
-        const permission = accessControl.can(teamRole.role).createAny("project");
-        if (!permission.granted) {
-          return new Promise((resolve, reject) => reject(new Error(401)));
-        }
-
-        return projectController.create(req.user.id, req.body);
-      })
+  app.post("/project", verifyToken, checkPermissions("createOwn"), (req, res) => {
+    return projectController.create(req.user.id, req.body)
       .then((project) => {
         return res.status(200).send(project);
       })
@@ -84,32 +100,10 @@ module.exports = (app) => {
   // -----------------------------------------
 
   /*
-  ** Route to get all the user's projects
-  */
-  app.get("/project/user", verifyToken, (req, res) => {
-    projectController.findByUserId(req.user.id)
-      .then((projects) => {
-        return res.status(200).send(projects);
-      })
-      .catch((error) => {
-        return res.status(400).send(error);
-      });
-  });
-  // -----------------------------------------
-
-  /*
   ** Route to get a project by ID
   */
-  app.get("/project/:id", verifyToken, (req, res) => {
-    return checkAccess(req)
-      .then((teamRole) => {
-        const permission = accessControl.can(teamRole.role).readAny("project");
-        if (!permission.granted) {
-          return new Promise((resolve, reject) => reject(new Error(401)));
-        }
-
-        return projectController.findById(req.params.id);
-      })
+  app.get("/project/:id", verifyToken, checkPermissions("readOwn"), (req, res) => {
+    return projectController.findById(req.params.id)
       .then((project) => {
         return res.status(200).send(project);
       })
@@ -128,16 +122,8 @@ module.exports = (app) => {
   /*
   ** Route to update a project ID
   */
-  app.put("/project/:id", verifyToken, (req, res) => {
-    return checkAccess(req)
-      .then((teamRole) => {
-        const permission = accessControl.can(teamRole.role).updateAny("project");
-        if (!permission.granted) {
-          return new Promise((resolve, reject) => reject(new Error(401)));
-        }
-
-        return projectController.update(req.params.id, req.body);
-      })
+  app.put("/project/:id", verifyToken, checkPermissions("updateOwn"), (req, res) => {
+    return projectController.update(req.params.id, req.body)
       .then((project) => {
         return res.status(200).send(project);
       })
@@ -153,7 +139,7 @@ module.exports = (app) => {
   /*
   ** Route to update a project's Logo
   */
-  app.post("/project/:id/logo", verifyToken, (req, res) => {
+  app.post("/project/:id/logo", verifyToken, checkPermissions("updateOwn"), (req, res) => {
     let logoPath;
 
     req.pipe(req.busboy);
@@ -166,15 +152,7 @@ module.exports = (app) => {
     });
 
     req.busboy.on("finish", () => {
-      return checkAccess(req)
-        .then((teamRole) => {
-          const permission = accessControl.can(teamRole.role).updateAny("project");
-          if (!permission.granted) {
-            return new Promise((resolve, reject) => reject(new Error(401)));
-          }
-
-          return projectController.update(req.params.id, { logo: logoPath });
-        })
+      return projectController.update(req.params.id, { logo: logoPath })
         .then((project) => {
           return res.status(200).send(project);
         })
@@ -188,16 +166,8 @@ module.exports = (app) => {
   /*
   ** Route to remove a project
   */
-  app.delete("/project/:id", verifyToken, (req, res) => {
-    return checkAccess(req)
-      .then((teamRole) => {
-        const permission = accessControl.can(teamRole.role).deleteAny("project");
-        if (!permission.granted) {
-          return new Promise((resolve, reject) => reject(new Error(401)));
-        }
-
-        return projectController.remove(req.params.id, req.user.id);
-      })
+  app.delete("/project/:id", verifyToken, checkPermissions("deleteAny"), (req, res) => {
+    return projectController.remove(req.params.id, req.user.id)
       .then(() => {
         return res.status(200).send({ removed: true });
       })
@@ -210,18 +180,17 @@ module.exports = (app) => {
   /*
   ** Route return a list of projects within a team
   */
-  app.get("/project/team/:team_id", verifyToken, (req, res) => {
-    return teamController.getTeamRole(req.params.team_id, req.user.id)
-      .then((teamRole) => {
-        const permission = accessControl.can(teamRole.role).readAny("project");
-        if (!permission.granted) {
-          return new Promise((resolve, reject) => reject(new Error(401)));
+  app.get("/project/team/:team_id", verifyToken, checkPermissions("readOwn"), (req, res) => {
+    return projectController.getTeamProjects(req.params.team_id)
+      .then((projects) => {
+        let filteredProjects = projects;
+        if (req.user.projects) {
+          filteredProjects = projects.filter((o) => {
+            return req.user.projects.includes(o.id) || o.ghost;
+          });
         }
 
-        return projectController.getTeamProjects(req.params.team_id);
-      })
-      .then((projects) => {
-        return res.status(200).send(projects);
+        return res.status(200).send(filteredProjects);
       })
       .catch((error) => {
         if (error.message === "401") {
@@ -279,26 +248,14 @@ module.exports = (app) => {
   /*
   ** Route to generate a dashboard template
   */
-  app.post("/project/:id/template/:template", verifyToken, (req, res) => {
-    return checkAccess(req)
-      .then((teamRole) => {
-        const permission = accessControl.can(teamRole.role).createAny("connection");
-        if (!permission.granted) {
-          return new Promise((resolve, reject) => reject(new Error(401)));
-        }
-        return projectController.generateTemplate(
-          req.params.id,
-          req.body,
-          req.params.template,
-        );
-      })
+  app.post("/project/:id/template/:template", verifyToken, checkPermissions("createAny"), (req, res) => {
+    return projectController.generateTemplate(
+      req.params.id,
+      req.body,
+      req.params.template,
+    )
       .then((result) => {
-        // refresh the charts
-        const charts = [];
-        result.forEach((r) => {
-          charts.push(r.chart);
-        });
-        refreshChartsApi(req.params.id, charts, req.headers.authorization);
+        refreshChartsApi(req.params.id, result, req.headers.authorization);
 
         return res.status(200).send(result);
       })

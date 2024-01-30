@@ -92,8 +92,29 @@ class DatasetController {
     this.dataRequestController = new DataRequestController();
   }
 
+  findByTeam(teamId) {
+    return db.Dataset.findAll({
+      where: { team_id: teamId },
+      include: [
+        { model: db.DataRequest, include: [{ model: db.Connection, attributes: ["id", "name", "type", "subType"] }] },
+      ],
+      order: [["order", "ASC"], ["createdAt", "DESC"]],
+    })
+      .then((datasets) => {
+        return datasets;
+      })
+      .catch((error) => {
+        return new Promise((resolve, reject) => reject(error));
+      });
+  }
+
   findById(id) {
-    return db.Dataset.findByPk(id)
+    return db.Dataset.findOne({
+      where: { id },
+      include: [
+        { model: db.DataRequest, include: [{ model: db.Connection, attributes: ["id", "name", "type", "subType"] }] },
+      ],
+    })
       .then((dataset) => {
         if (!dataset) {
           return new Promise((resolve, reject) => reject(new Error(404)));
@@ -108,6 +129,9 @@ class DatasetController {
   findByChart(chartId) {
     return db.Dataset.findAll({
       where: { chart_id: chartId },
+      include: [
+        { model: db.DataRequest, include: [{ model: db.Connection, attributes: ["id", "name", "type", "subType"] }] },
+      ],
       order: [["order", "ASC"]],
     })
       .then((datasets) => {
@@ -116,6 +140,17 @@ class DatasetController {
       .catch((error) => {
         return new Promise((resolve, reject) => reject(error));
       });
+  }
+
+  async findByProjects(teamId, projects) {
+    const datasets = await db.Dataset.findAll({
+      where: { team_id: teamId },
+    });
+
+    return datasets.filter((dataset) => {
+      if (!dataset?.project_ids) return false;
+      return dataset.project_ids.some((projectId) => projects.includes(projectId));
+    });
   }
 
   create(data) {
@@ -290,6 +325,32 @@ class DatasetController {
       .catch((err) => {
         return Promise.reject(err);
       });
+  }
+
+  async findRelatedCharts(id) {
+    try {
+      // get cdcs, but make sure to avoid getting them for ghost projects
+      const cdcs = await db.ChartDatasetConfig.findAll({
+        where: { dataset_id: id, "$Chart.Project.ghost$": false },
+        include: [{
+          model: db.Chart,
+          attributes: ["id", "name"],
+          include: [{ model: db.Project, attributes: ["id", "ghost"] }],
+        }],
+      });
+
+      // return all unique charts
+      const charts = [];
+      cdcs.forEach((cdc) => {
+        if (!charts.find((c) => c.id === cdc.Chart.id)) {
+          charts.push(cdc.Chart);
+        }
+      });
+
+      return charts;
+    } catch (error) {
+      return new Promise((resolve, reject) => reject(error));
+    }
   }
 }
 

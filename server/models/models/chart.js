@@ -146,13 +146,35 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
     },
+    layout: {
+      type: DataTypes.TEXT,
+      defaultValue: JSON.stringify({
+        "lg": [0, 0, 6, 2],
+        "md": [0, 0, 6, 2],
+        "sm": [0, 0, 4, 2],
+        "xs": [0, 0, 4, 2],
+        "xxs": [0, 0, 2, 2]
+      }),
+      set(val) {
+        return this.setDataValue("layout", JSON.stringify(val));
+      },
+      get() {
+        try {
+          return JSON.parse(this.getDataValue("layout"));
+        } catch (e) {
+          return this.getDataValue("layout");
+        }
+      },
+    }
   }, {
     freezeTableName: true,
   });
 
   Chart.associate = (models) => {
+    models.Chart.hasMany(models.ChartDatasetConfig, { foreignKey: "chart_id" });
     models.Chart.hasMany(models.Dataset, { foreignKey: "chart_id" });
     models.Chart.hasMany(models.Chartshare, { foreignKey: "chart_id" });
+    models.Chart.belongsTo(models.Project, { foreignKey: "project_id" });
   };
 
   return Chart;

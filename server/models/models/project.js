@@ -61,13 +61,16 @@ module.exports = (sequelize, DataTypes) => {
     timezone: {
       type: DataTypes.STRING,
     },
+    ghost: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
   }, {
     freezeTableName: true,
   });
 
   Project.associate = (models) => {
     models.Project.hasMany(models.ProjectRole, { foreignKey: "project_id" });
-    models.Project.hasMany(models.Connection, { foreignKey: "project_id" });
     models.Project.hasMany(models.Chart, { foreignKey: "project_id" });
     models.Project.belongsTo(models.Team, { foreignKey: "team_id" });
   };

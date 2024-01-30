@@ -14,13 +14,40 @@ module.exports = (sequelize, DataTypes) => {
       primaryKey: true,
       autoIncrement: true,
     },
-    chart_id: {
+    team_id: {
       type: DataTypes.INTEGER,
       allowNull: false,
       reference: {
-        model: "Chart",
+        model: "Team",
         key: "id",
         onDelete: "cascade",
+      },
+    },
+    project_ids: {
+      type: DataTypes.TEXT,
+      set(val) {
+        try {
+          return this.setDataValue("project_ids", JSON.stringify(val));
+        } catch (e) {
+          return this.setDataValue("project_ids", val);
+        }
+      },
+      get() {
+        try {
+          return JSON.parse(this.getDataValue("project_ids"));
+        } catch (e) {
+          return this.getDataValue("project_ids");
+        }
+      },
+    },
+    chart_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: null,
+      reference: {
+        model: "Chart",
+        key: "id",
+        onDelete: "SET NULL",
       },
     },
     connection_id: {
@@ -31,6 +58,11 @@ module.exports = (sequelize, DataTypes) => {
         key: "id",
         onDelete: "cascade",
       },
+    },
+    draft: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true,
     },
     query: {
       type: DataTypes.TEXT,
@@ -51,57 +83,11 @@ module.exports = (sequelize, DataTypes) => {
     dateField: {
       type: DataTypes.STRING,
     },
-    datasetColor: {
-      type: DataTypes.TEXT,
-    },
-    fillColor: {
-      type: DataTypes.TEXT,
-      set(val) {
-        try {
-          return this.setDataValue("fillColor", JSON.stringify(val));
-        } catch (e) {
-          return this.setDataValue("fillColor", val);
-        }
-      },
-      get() {
-        try {
-          return JSON.parse(this.getDataValue("fillColor"));
-        } catch (e) {
-          return this.getDataValue("fillColor");
-        }
-      }
-    },
-    fill: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false,
-    },
-    multiFill: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false,
-    },
     dateFormat: {
       type: DataTypes.STRING,
     },
     legend: {
       type: DataTypes.STRING,
-    },
-    pointRadius: {
-      type: DataTypes.INTEGER,
-    },
-    patterns: {
-      type: DataTypes.TEXT,
-      allowNull: false,
-      defaultValue: "[]",
-      set(val) {
-        return this.setDataValue("patterns", JSON.stringify(val));
-      },
-      get() {
-        try {
-          return JSON.parse(this.getDataValue("patterns"));
-        } catch (e) {
-          return this.getDataValue("patterns");
-        }
-      }
     },
     conditions: {
       type: DataTypes.TEXT("long"),
@@ -145,38 +131,6 @@ module.exports = (sequelize, DataTypes) => {
         return this.setDataValue("excludedFields", JSON.stringify(val));
       },
     },
-    groups: {
-      type: DataTypes.TEXT,
-      get() {
-        try {
-          return JSON.parse(this.getDataValue("groups"));
-        } catch (e) {
-          return this.getDataValue("groups");
-        }
-      },
-      set(val) {
-        return this.setDataValue("groups", JSON.stringify(val));
-      },
-    },
-    groupBy: {
-      type: DataTypes.STRING,
-    },
-    sort: {
-      type: DataTypes.STRING,
-    },
-    columnsOrder: {
-      type: DataTypes.TEXT,
-      get() {
-        try {
-          return JSON.parse(this.getDataValue("columnsOrder"));
-        } catch (e) {
-          return this.getDataValue("columnsOrder");
-        }
-      },
-      set(val) {
-        return this.setDataValue("columnsOrder", JSON.stringify(val));
-      }
-    },
     averageByTotal: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
@@ -216,6 +170,89 @@ module.exports = (sequelize, DataTypes) => {
         onDelete: "cascade",
       },
     },
+    // ------------------------------------
+
+    /*
+    ** LEGACY FIELDS
+    */
+    datasetColor: {
+      type: DataTypes.TEXT,
+    },
+    fillColor: {
+      type: DataTypes.TEXT,
+      set(val) {
+        try {
+          return this.setDataValue("fillColor", JSON.stringify(val));
+        } catch (e) {
+          return this.setDataValue("fillColor", val);
+        }
+      },
+      get() {
+        try {
+          return JSON.parse(this.getDataValue("fillColor"));
+        } catch (e) {
+          return this.getDataValue("fillColor");
+        }
+      }
+    },
+    fill: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    multiFill: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    pointRadius: {
+      type: DataTypes.INTEGER,
+    },
+    patterns: {
+      type: DataTypes.TEXT,
+      allowNull: false,
+      defaultValue: "[]",
+      set(val) {
+        return this.setDataValue("patterns", JSON.stringify(val));
+      },
+      get() {
+        try {
+          return JSON.parse(this.getDataValue("patterns"));
+        } catch (e) {
+          return this.getDataValue("patterns");
+        }
+      }
+    },
+    groups: {
+      type: DataTypes.TEXT,
+      get() {
+        try {
+          return JSON.parse(this.getDataValue("groups"));
+        } catch (e) {
+          return this.getDataValue("groups");
+        }
+      },
+      set(val) {
+        return this.setDataValue("groups", JSON.stringify(val));
+      },
+    },
+    groupBy: {
+      type: DataTypes.STRING,
+    },
+    sort: {
+      type: DataTypes.STRING,
+    },
+    columnsOrder: {
+      type: DataTypes.TEXT,
+      get() {
+        try {
+          return JSON.parse(this.getDataValue("columnsOrder"));
+        } catch (e) {
+          return this.getDataValue("columnsOrder");
+        }
+      },
+      set(val) {
+        return this.setDataValue("columnsOrder", JSON.stringify(val));
+      }
+    },
     order: {
       type: DataTypes.INTEGER,
       defaultValue: 0,
@@ -231,10 +268,8 @@ module.exports = (sequelize, DataTypes) => {
   });
 
   Dataset.associate = (models) => {
-    models.Dataset.belongsTo(models.Chart, { foreignKey: "chart_id" });
-    models.Dataset.belongsTo(models.Connection, { foreignKey: "connection_id" });
     models.Dataset.hasMany(models.DataRequest, { foreignKey: "dataset_id" });
-    models.Dataset.hasMany(models.Alert, { foreignKey: "dataset_id" });
+    models.Dataset.hasMany(models.ChartDatasetConfig, { foreignKey: "dataset_id" });
     models.Dataset.hasOne(models.DataRequest, { foreignKey: "id", as: "mainSource" });
   };
 

@@ -14,11 +14,11 @@ module.exports = (sequelize, DataTypes) => {
         onDelete: "cascade",
       },
     },
-    dataset_id: {
-      type: DataTypes.INTEGER,
+    cdc_id: {
+      type: DataTypes.UUID,
       allowNull: false,
       reference: {
-        model: "Dataset",
+        model: "ChartDatasetConfig",
         key: "id",
         onDelete: "cascade",
       },
@@ -99,7 +99,7 @@ module.exports = (sequelize, DataTypes) => {
   });
 
   Alert.associate = (models) => {
-    models.Alert.belongsTo(models.Dataset, { foreignKey: "dataset_id" });
+    models.Alert.belongsTo(models.ChartDatasetConfig, { foreignKey: "cdc_id" });
     models.Alert.belongsTo(models.Chart, { foreignKey: "chart_id" });
     models.Alert.hasMany(models.AlertEvent, { foreignKey: "alert_id", as: "events" });
     models.Alert.hasMany(models.AlertIntegration, { foreignKey: "alert_id" });

@@ -116,6 +116,21 @@ class ConnectionController {
       });
   }
 
+  findByTeam(teamId) {
+    return db.Connection.findAll({
+      where: { team_id: teamId },
+      attributes: { exclude: ["password"] },
+      include: [{ model: db.OAuth, attributes: { exclude: ["refreshToken"] } }],
+      order: [["createdAt", "DESC"]],
+    })
+      .then((connections) => {
+        return connections;
+      })
+      .catch((error) => {
+        return new Promise((resolve, reject) => reject(error));
+      });
+  }
+
   findByProject(projectId) {
     return db.Connection.findAll({
       where: { project_id: projectId },
@@ -124,6 +139,28 @@ class ConnectionController {
     })
       .then((connections) => {
         return connections;
+      })
+      .catch((error) => {
+        return new Promise((resolve, reject) => reject(error));
+      });
+  }
+
+  findByProjects(teamId, projects) {
+    return db.Connection.findAll({
+      where: { team_id: teamId },
+      attributes: { exclude: ["password"] },
+      include: [{ model: db.OAuth, attributes: { exclude: ["refreshToken"] } }],
+      order: [["createdAt", "DESC"]],
+    })
+      .then((connections) => {
+        const filteredConnections = connections.filter((connection) => {
+          if (!connection.project_ids) return false;
+          return connection.project_ids.some((projectId) => {
+            return projects.includes(projectId);
+          });
+        });
+
+        return filteredConnections;
       })
       .catch((error) => {
         return new Promise((resolve, reject) => reject(error));
@@ -169,7 +206,19 @@ class ConnectionController {
       });
   }
 
-  removeConnection(id) {
+  async removeConnection(id, removeDatasets) {
+    if (removeDatasets) {
+      try {
+        const drs = await db.DataRequest.findAll({ where: { connection_id: id } });
+        const datasetIds = drs.map((dr) => dr.dataset_id);
+
+        await db.DataRequest.destroy({ where: { connection_id: id } });
+        await db.Dataset.destroy({ where: { id: datasetIds } });
+      } catch (e) {
+        //
+      }
+    }
+
     return db.Connection.destroy({ where: { id } })
       .then(() => {
         return true;
@@ -646,6 +695,15 @@ class ConnectionController {
         let url = tempUrl;
         if (url.indexOf("?") > -1) {
           url = tempUrl.substring(0, tempUrl.indexOf("?"));
+        }
+
+        // if ant variable queryParams are left, remove them
+        if (queryParams && Object.keys(queryParams).length > 0) {
+          Object.keys(queryParams).forEach((q) => {
+            if (queryParams[q] === "{{start_date}}" || queryParams[q] === "{{end_date}}") {
+              delete queryParams[q];
+            }
+          });
         }
 
         const options = {

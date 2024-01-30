@@ -1,22 +1,19 @@
-import { combineReducers } from "redux";
-import { connectRouter } from "connected-react-router";
-
 // individual reducers imports
-import user from "./user";
-import project from "./project";
-import team from "./team";
-import chart from "./chart";
-import connection from "./connection";
-import savedQuery from "./savedQuery";
+import user from "../slices/user";
+import project from "../slices/project";
+import team from "../slices/team";
+import chart from "../slices/chart";
+import connection from "../slices/connection";
+import savedQuery from "../slices/savedQuery";
 import error from "./error";
-import dataset from "./dataset";
+import dataset from "../slices/dataset";
 import dataRequest from "./dataRequest";
 import tutorial from "./tutorial";
 import template from "./template";
-import alert from "./alert";
+import alert from "../slices/alert";
 import integration from "./integration";
 
-const AppReducer = (history) => combineReducers({
+const AppReducer = {
   user,
   project,
   team,
@@ -30,7 +27,6 @@ const AppReducer = (history) => combineReducers({
   template,
   alert,
   integration,
-  router: connectRouter(history),
-});
+};
 
 export default AppReducer;

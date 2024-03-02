@@ -4,6 +4,7 @@ const Sequelize = require("sequelize");
 const querystring = require("querystring");
 const moment = require("moment");
 const _ = require("lodash");
+const fs = require("fs");
 
 const { ObjectId } = mongoose.Types;
 
@@ -219,6 +220,22 @@ class ConnectionController {
       }
     }
 
+    const connection = await this.findById(id);
+    // remove certificates and keys if present
+    try {
+      if (connection.sslCa) {
+        fs.unlink(connection.sslCa, () => {});
+      }
+      if (connection.sslCert) {
+        fs.unlink(connection.sslCert, () => {});
+      }
+      if (connection.sslKey) {
+        fs.unlink(connection.sslKey, () => {});
+      }
+    } catch (e) {
+      //
+    }
+
     return db.Connection.destroy({ where: { id } })
       .then(() => {
         return true;
@@ -262,21 +279,38 @@ class ConnectionController {
     return testOptions;
   }
 
-  testRequest(data) {
+  testRequest(data, extras) {
+    let certificates;
+    if (extras?.files?.length > 0) {
+      certificates = {};
+      extras.files.forEach((file) => {
+        // Assuming the field names in the form match these keys
+        if (file.fieldname === "sslCa" || file.fieldname === "sslCert" || file.fieldname === "sslKey") {
+          certificates[file.fieldname] = file.path; // Use the temporary file path for testing
+        }
+      });
+    }
+
+    let connectionParams = { ...data };
+
+    if (certificates) {
+      connectionParams = { ...connectionParams, ...certificates };
+    }
+
     if (data.type === "api") {
-      return this.testApi(data);
+      return this.testApi(connectionParams);
     } else if (data.type === "mongodb") {
-      return this.testMongo(data);
+      return this.testMongo(connectionParams);
     } else if (data.type === "mysql" || data.type === "postgres") {
-      return this.testMysql(data);
+      return this.testMysql(connectionParams);
     } else if (data.type === "realtimedb") {
-      return this.testFirebase(data);
+      return this.testFirebase(connectionParams);
     } else if (data.type === "firestore") {
-      return this.testFirestore(data);
+      return this.testFirestore(connectionParams);
     } else if (data.type === "googleAnalytics") {
-      return this.testGoogleAnalytics(data);
+      return this.testGoogleAnalytics(connectionParams);
     } else if (data.type === "customerio") {
-      return this.testCustomerio(data);
+      return this.testCustomerio(connectionParams);
     }
 
     return new Promise((resolve, reject) => reject(new Error("No request type specified")));
@@ -316,7 +350,7 @@ class ConnectionController {
   async testMysql(data) {
     try {
       const sqlDb = await externalDbConnection(data);
-      const tables = await sqlDb.getQueryInterface().showAllSchemas();
+      const tables = await sqlDb.getQueryInterface().showAllTables();
       return Promise.resolve({
         success: true,
         tables,
@@ -622,6 +656,8 @@ class ConnectionController {
 
     const limit = dataRequest.itemsLimit
       ? parseInt(dataRequest.itemsLimit, 10) : 0;
+    const { variables } = dataRequest;
+
     return this.findById(id)
       .then(async (connection) => {
         let tempUrl = connection.getApiUrl(connection);
@@ -646,7 +682,7 @@ class ConnectionController {
           // something was found, go through all and replace the variables
           if (Object.keys(keysFound).length > 0) {
             const chart = await db.Chart.findByPk(chartId);
-            if (chart.startDate && chart.endDate) {
+            if (chart?.startDate && chart?.endDate) {
               Object.keys(keysFound).forEach((q) => {
                 const value = keysFound[q];
                 let startDate = getMomentObj(timezone)(chart.startDate);
@@ -686,6 +722,20 @@ class ConnectionController {
 
                 if (value === "endDate" && endDate) {
                   queryParams[q] = endDate.format(chart.dateVarsFormat || "");
+                }
+              });
+            } else if (variables?.startDate?.value && variables?.endDate?.value) {
+              Object.keys(keysFound).forEach((q) => {
+                const value = keysFound[q];
+                const startDate = getMomentObj(timezone)(variables.startDate.value);
+                const endDate = getMomentObj(timezone)(variables.endDate.value);
+
+                if (value === "startDate" && startDate) {
+                  queryParams[q] = startDate.format(variables.dateFormat?.value || "");
+                }
+
+                if (value === "endDate" && endDate) {
+                  queryParams[q] = endDate.format(variables.dateFormat?.value || "");
                 }
               });
             }

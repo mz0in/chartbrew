@@ -8,7 +8,8 @@ import { ToastContainer, toast, Flip } from "react-toastify";
 import "react-toastify/dist/ReactToastify.min.css";
 import _ from "lodash";
 import { useWindowSize } from "react-use";
-import { LuPencilLine } from "react-icons/lu";
+import { LuCheck, LuPencilLine } from "react-icons/lu";
+import { useNavigate, useParams } from "react-router";
 
 import ChartPreview from "./components/ChartPreview";
 import ChartSettings from "./components/ChartSettings";
@@ -24,13 +25,10 @@ import {
   clearDatasets as clearDatasetsAction,
 } from "../../actions/dataset";
 import { getChartAlerts, clearAlerts } from "../../slices/alert";
-import {
-  getTemplates as getTemplatesAction
-} from "../../actions/template";
+import { getTemplates, selectTemplates } from "../../slices/template";
 import Row from "../../components/Row";
 import Text from "../../components/Text";
 import useThemeDetector from "../../modules/useThemeDetector";
-import { useNavigate, useParams } from "react-router";
 import ChartDatasets from "./components/ChartDatasets";
 import getDashboardLayout from "../../modules/getDashboardLayout";
 
@@ -54,10 +52,11 @@ function AddChart(props) {
   const { height } = useWindowSize();
 
   const {
-    getChartDatasets, datasets, clearDatasets, connections, templates, getTemplates,
+    getChartDatasets, datasets, clearDatasets, connections,
   } = props;
 
   const charts = useSelector(selectCharts);
+  const templates = useSelector(selectTemplates);
 
   const isDark = useThemeDetector();
   const params = useParams();
@@ -85,7 +84,7 @@ function AddChart(props) {
       }));
     }
 
-    getTemplates(params.teamId);
+    dispatch(getTemplates(params.teamId));
   }, []);
 
   useEffect(() => {
@@ -394,16 +393,18 @@ function AddChart(props) {
                       value={chartName}
                       onChange={(e) => _onNameChange(e.target.value)}
                       variant="bordered"
-                      size="sm"
+                      labelPlacement="outside"
                     />
                     <Spacer x={0.5} />
                     <Button
-                      color="secondary"
+                      color="success"
                       type="submit"
                       onClick={_onSubmitNewName}
                       size="sm"
+                      isIconOnly
+
                     >
-                      Save
+                      <LuCheck />
                     </Button>
                   </div>
                 </form>
@@ -525,15 +526,12 @@ AddChart.propTypes = {
   datasets: PropTypes.array.isRequired,
   clearDatasets: PropTypes.func.isRequired,
   connections: PropTypes.array.isRequired,
-  getTemplates: PropTypes.func.isRequired,
-  templates: PropTypes.object.isRequired,
 };
 
 const mapStateToProps = (state) => {
   return {
     datasets: state.dataset.data,
     connections: state.connection.data,
-    templates: state.template,
   };
 };
 
@@ -552,7 +550,6 @@ const mapDispatchToProps = (dispatch) => {
       return dispatch(deleteDatasetAction(projectId, chartId, datasetId));
     },
     clearDatasets: () => dispatch(clearDatasetsAction()),
-    getTemplates: (teamId) => dispatch(getTemplatesAction(teamId)),
   };
 };
 

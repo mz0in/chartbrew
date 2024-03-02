@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { LuAreaChart, LuArrowLeftCircle, LuCheckCircle, LuClipboard, LuClipboardCheck, LuCompass, LuLayoutDashboard, LuSearch } from "react-icons/lu";
+import { LuAreaChart, LuArrowLeftCircle, LuClipboard, LuClipboardCheck, LuCompass, LuLayoutDashboard, LuPartyPopper, LuSearch } from "react-icons/lu";
 import { Button, Card, CardBody, CardFooter, CardHeader, Image, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Spacer } from "@nextui-org/react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useParams } from "react-router";
@@ -21,8 +21,7 @@ import RealtimeDbConnectionForm from "./RealtimeDb/RealtimeDbConnectionForm";
 import GaConnectionForm from "./GoogleAnalytics/GaConnectionForm";
 import StrapiConnectionForm from "./Strapi/StrapiConnectionForm";
 import CustomerioConnectionForm from "./Customerio/CustomerioConnectionForm";
-import TimescaleConnectionForm from "./Timescale/TimescaleConnectionForm";
-import { addConnection, getConnection, saveConnection } from "../../slices/connection";
+import { addConnection, addFilesToConnection, getConnection, saveConnection } from "../../slices/connection";
 import HelpBanner from "../../components/HelpBanner";
 import { Link, useSearchParams } from "react-router-dom";
 import { generateInviteUrl } from "../../slices/team";
@@ -105,10 +104,14 @@ function ConnectionWizard() {
     return true;
   });
 
-  const _onAddNewConnection = (data) => {
+  const _onAddNewConnection = (data, files) => {
     if (params.connectionId !== "new") {
       return dispatch(saveConnection({ team_id: params.teamId, connection: data }))
-        .then(() => {
+        .then(async () => {
+          if (files) {
+            await dispatch(addFilesToConnection({ team_id: params.teamId, connection_id: params.connectionId, files }));
+          }
+
           toast.success("Connection saved successfully");
           return true;
         })
@@ -122,6 +125,14 @@ function ConnectionWizard() {
         connection: { ...data, team_id: params.teamId }
       }))
       .then((newConnection) => {
+        if (newConnection.error) {
+          return false;
+        }
+
+        if (files) {
+          dispatch(addFilesToConnection({ team_id: params.teamId, connection_id: newConnection.payload.id, files }));
+        }
+
         if (data.type === "googleAnalytics") {
           navigate(`/${params.teamId}/connection/${newConnection.payload.id}`);
           return true;
@@ -277,9 +288,17 @@ function ConnectionWizard() {
             />
           )}
           {selectedType === "timescaledb" && (
-            <TimescaleConnectionForm
+            <PostgresConnectionForm
               onComplete={_onAddNewConnection}
               editConnection={newConnection}
+              subType="timescaledb"
+            />
+          )}
+          {selectedType === "supabasedb" && (
+            <PostgresConnectionForm
+              onComplete={_onAddNewConnection}
+              editConnection={newConnection}
+              subType="supabasedb"
             />
           )}
 
@@ -296,7 +315,7 @@ function ConnectionWizard() {
                 </CardHeader>
                 <CardBody>
                   <p className="text-sm text-gray-500">
-                    {"Someone like your CTO or a senior engineer can help you with this."}
+                    {"Someone from your engineering team can help you with this."}
                   </p>
                   <Spacer y={2} />
                   <p className="text-sm text-gray-500">
@@ -368,7 +387,7 @@ function ConnectionWizard() {
       >
         <ModalContent>
           <ModalHeader className="flex flex-row items-center gap-2">
-            <LuCheckCircle className="text-success" />
+            <LuPartyPopper className="text-success" size={24} />
             <span className="font-semibold">Your connection was saved!</span>
           </ModalHeader>
           <ModalBody>

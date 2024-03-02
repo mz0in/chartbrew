@@ -18,6 +18,7 @@ import { runQuery, updateChart } from "../../slices/chart";
 import FormulaTips from "../../components/FormulaTips";
 import DatasetFilters from "../../components/DatasetFilters";
 import ChartSettings from "../AddChart/components/ChartSettings";
+import { updateCdc } from "../../slices/chart";
 
 
 function DatasetBuilder(props) {
@@ -26,6 +27,7 @@ function DatasetBuilder(props) {
   const [fieldOptions, setFieldOptions] = useState([]);
   const [formula, setFormula] = useState("");
   const [useCache, setUseCache] = useState(true);
+  const [loadingFields, setLoadingFields] = useState(false);
 
   const params = useParams();
   const dispatch = useDispatch();
@@ -133,19 +135,26 @@ function DatasetBuilder(props) {
       }
 
       if (Object.keys(updateObj).length > 0) {
+        setLoadingFields(true);
         dispatch(updateDataset({
           team_id: dataset.team_id,
           dataset_id: dataset.id,
           data: updateObj,
         }))
           .then(() => {
-            dispatch(runQuery({
+            return dispatch(runQuery({
               project_id: projectId,
               chart_id: chart.id,
               noSource: false,
               skipParsing: false,
               getCache: true,
             }));
+          })
+          .then(() => {
+            setLoadingFields(false);
+          })
+          .catch(() => {
+            setLoadingFields(false);
           });
       }
     }
@@ -276,6 +285,14 @@ function DatasetBuilder(props) {
 
   const _onApplyFormula = () => {
     _onUpdateDataset({ formula });
+    if (chart?.ChartDatasetConfigs?.[0]?.id) {
+      dispatch(updateCdc({
+        project_id: projectId,
+        chart_id: chart.id,
+        cdc_id: chart?.ChartDatasetConfigs?.[0]?.id,
+        data: { formula },
+      }));
+    }
   };
 
   const _onChangeGlobalSettings = ({
@@ -338,8 +355,8 @@ function DatasetBuilder(props) {
   };
 
   return (
-    <div className="grid grid-cols-12 divide-x-1 gap-4">
-      <div className="col-span-12 md:col-span-4">
+    <div className="grid grid-cols-12 divide-x-1 dark:divide-x-0 divide-content3 gap-4">
+      <div className="col-span-12 md:col-span-4 bg-content1 rounded-lg p-4">
         <Autocomplete
           label="Dimension"
           labelPlacement="outside"
@@ -347,6 +364,7 @@ function DatasetBuilder(props) {
           placeholder="Select a dimension"
           selectedKey={dataset.xAxis}
           onSelectionChange={(key) => _onUpdateDataset({ xAxis: key })}
+          isLoading={loadingFields}
         >
           {_filterOptions("x").map((option) => (
             <AutocompleteItem
@@ -370,6 +388,7 @@ function DatasetBuilder(props) {
           placeholder="Select a metric"
           selectedKey={dataset.yAxis}
           onSelectionChange={(key) => _onUpdateDataset({ yAxis: key })}
+          isLoading={loadingFields}
         >
           {_getYFieldOptions().map((option) => (
             <AutocompleteItem
@@ -418,6 +437,7 @@ function DatasetBuilder(props) {
             placeholder="Select a field"
             selectedKey={dataset.dateField}
             onSelectionChange={(key) => _onUpdateDataset({ dateField: key })}
+            isLoading={loadingFields}
           >
             {_getDateFieldOptions().map((option) => (
               <AutocompleteItem
@@ -508,7 +528,7 @@ function DatasetBuilder(props) {
         />
       </div>
 
-      <div className="col-span-12 md:col-span-8">
+      <div className="col-span-12 md:col-span-8 pl-4">
         <ChartPreview
           chart={chart}
           onRefreshPreview={() => _onRefreshPreview()}

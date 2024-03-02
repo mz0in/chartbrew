@@ -24,7 +24,7 @@
 
 <p align="center">
   <a href="https://chartbrew.com">
-    <img src="https://cdn2.chartbrew.com/v2-banner.png" alt="ChartBrew dashboard" width="600"/>
+    <img src="https://chartbrew-static.b-cdn.net/banners/chartbrew-dashboard.png" alt="ChartBrew dashboard" width="600"/>
   </a>
 </p>
 
@@ -115,7 +115,7 @@ docker run -p 4019:4019 -p 4018:4018 \
   -e VITE_APP_CLIENT_HOST=http://localhost:4018 \
   -e VITE_APP_CLIENT_PORT=4018 \
   -e VITE_APP_API_HOST=http://localhost:4019 \
-  razvanilin/chartbrew:v3
+  razvanilin/chartbrew
 ```
 
 ## Acknowledgements

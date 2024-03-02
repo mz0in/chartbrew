@@ -46,7 +46,7 @@ function ChartPreview(props) {
   const _checkIfFilters = () => {
     let filterCount = 0;
     chart.ChartDatasetConfigs.forEach((d) => {
-      if (d.Dataset?.conditions) {
+      if (Array.isArray(d.Dataset?.conditions)) {
         filterCount += d.Dataset.conditions.filter((c) => c.exposed).length;
       }
     });
@@ -136,7 +136,7 @@ function ChartPreview(props) {
   };
 
   return (
-    <div className={"mx-auto pr-4 pl-4 w-full"}>
+    <div className={"bg-content1 rounded-lg mx-auto p-4 w-full"}>
       {chart && chart.chartData && chart.ChartDatasetConfigs && (
         <>
           <div className={"w-full"}>

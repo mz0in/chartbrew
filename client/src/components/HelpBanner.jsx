@@ -22,15 +22,15 @@ const bannerData = {
     info: "7 min read",
   },
   postgres: {
-    title: "How to visualize your PostgreSQL data with Chartbrew",
-    description: "Chartbrew can connect to your PostgreSQL database and create charts that tell you more about your data.",
-    url: "https://chartbrew.com/blog/how-to-visualize-your-supabase-data-with-chartbrew/#connect-to-supabase-using-the-database-connection-url",
+    title: "How to visualize your Postgres data with Chartbrew",
+    description: "Chartbrew can connect to your Postgres database and create charts that tell you more about your data.",
+    url: "https://chartbrew.com/blog/how-to-visualize-postgresql-data-with-chartbrew/",
     info: "5 min read",
   },
   mysql: {
     title: "How to visualize your MySQL data with Chartbrew",
     description: "Chartbrew can connect to your MySQL database and create charts that tell you more about your data.",
-    url: "https://chartbrew.com/blog/how-to-visualize-your-mysql-data-with-chartbrew/",
+    url: "https://chartbrew.com/blog/visualize-mysql-data-with-chartbrew/",
     info: "5 min read",
   },
   firestore: {
@@ -69,6 +69,12 @@ const bannerData = {
     url: "https://chartbrew.com/blog/connect-and-visualize-timescaledb-data-with-chartbrew/",
     info: "5 min read",
   },
+  supabasedb: {
+    title: "How to visualize your Supabase data with Chartbrew",
+    description: "Chartbrew can connect to your Supabase database and create charts that tell you more about your data.",
+    url: "https://chartbrew.com/blog/connect-and-visualize-supabase-database-with-chartbrew/",
+    info: "5 min read",
+  },
 }
 
 function HelpBanner(props) {
@@ -78,6 +84,10 @@ function HelpBanner(props) {
     // open the url in a new tab
     window.open(bannerData[type].url, "_blank");
   };
+
+  if (!bannerData[type]) {
+    return null;
+  }
 
   return (
     <Card

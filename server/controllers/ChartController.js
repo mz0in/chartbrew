@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 const moment = require("moment");
 const Sequelize = require("sequelize");
 const { nanoid } = require("nanoid");
-const uuid = require("uuid/v4");
+const { v4: uuid } = require("uuid");
 
 const externalDbConnection = require("../modules/externalDbConnection");
 
@@ -485,7 +485,6 @@ class ChartController {
       })
       .then((url) => {
         const options = {
-          keepAlive: 1,
           connectTimeoutMS: 30000,
         };
         return mongoose.connect(url, options);
@@ -512,7 +511,6 @@ class ChartController {
     return this.connectionController.getConnectionUrl(connection_id)
       .then((url) => {
         const options = {
-          keepAlive: 1,
           connectTimeoutMS: 30000,
         };
         return mongoose.connect(url, options);

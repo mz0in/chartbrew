@@ -1,8 +1,10 @@
 const simplecrypt = require("simplecrypt");
-const uuid = require("uuid/v4");
+const { v4: uuid } = require("uuid");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const { nanoid } = require("nanoid");
+const { TOTP } = require("otpauth");
+const QRCode = require("qrcode");
 
 const db = require("../models/models");
 const mail = require("../modules/mail");
@@ -25,7 +27,6 @@ class UserController {
 
         return db.User.create({
           name: user.name,
-          oneaccountId: user.oneaccountId,
           email: user.email,
           password: bcryptHash,
           icon: user.icon,
@@ -144,7 +145,7 @@ class UserController {
       const foundUser = await db.User.findOne({ where: { "email": sc.encrypt(email) } });
 
       if (!foundUser) {
-        throw new Error(404);
+        throw new Error(401);
       }
 
       let isAuthenticated = false;
@@ -164,10 +165,60 @@ class UserController {
         throw new Error(401);
       }
 
+      const user2FA = await db.User2fa.findOne({
+        where: { user_id: foundUser.id, isEnabled: true }
+      });
+
+      if (user2FA?.id) {
+        return new Promise((resolve) => resolve({
+          user_id: foundUser.id, method_id: user2FA.id, method: user2FA.method,
+        }));
+      }
+
       return foundUser;
     } catch (error) {
       throw new Error(error.message);
     }
+  }
+
+  async validate2FaLogin(userId, methodId, token) {
+    const user2FA = await db.User2fa.findByPk(methodId);
+
+    if (`${user2FA.user_id}` !== `${userId}`) {
+      return new Promise((resolve, reject) => reject({ error: "User mismatch" }));
+    }
+
+    if (!user2FA) {
+      return new Promise((resolve, reject) => reject({ error: "2FA method does not exist" }));
+    }
+
+    const totp = new TOTP({
+      secret: user2FA.secret
+    });
+
+    const delta = totp.validate({ token, window: 1 });
+    if (delta !== null) {
+      const foundUser = await db.User.findOne({ where: { id: user2FA.user_id } });
+      return foundUser;
+    }
+
+    if (user2FA.backup) {
+      try {
+        const backupCodes = JSON.parse(user2FA.backup);
+        if (backupCodes.includes(token)) {
+          const foundUser = await db.User.findOne({ where: { id: user2FA.user_id } });
+          if (foundUser) {
+            const newBackupCodes = backupCodes.filter((code) => code !== token);
+            await user2FA.update({ backup: JSON.stringify(newBackupCodes) });
+            return foundUser;
+          }
+        }
+      } catch (e) {
+        // do nothing
+      }
+    }
+
+    return new Promise((resolve, reject) => reject(401));
   }
 
   findAll() {
@@ -404,6 +455,130 @@ class UserController {
       .catch((error) => {
         return new Promise((resolve, reject) => reject(error));
       });
+  }
+
+  generateQrCodeUrl(email, secret) {
+    const totp = new TOTP({
+      secret,
+      issuer: "Chartbrew",
+      label: email,
+      digits: 6,
+      period: 30,
+    });
+
+    return totp.toString();
+  }
+
+  async setup2faApp(userId) {
+    const user = await this.findById(userId);
+    if (!user) {
+      return new Promise((resolve, reject) => reject(new Error(404)));
+    }
+
+    const secret = new TOTP().secret.base32;
+
+    // Save secret to DB
+    await db.User2fa.create({
+      user_id: userId,
+      secret,
+      method: "app",
+      isEnabled: false, // Enabled after verification only
+    });
+
+    // Generate QR Code URL
+    const qrCodeURL = this.generateQrCodeUrl(user.email, secret);
+
+    // Generate QR code
+    try {
+      return await QRCode.toDataURL(qrCodeURL);
+    } catch (e) {
+      return new Promise((resolve, reject) => reject(e));
+    }
+  }
+
+  async verify2faApp(userId, { token, password }) {
+    const user = await this.findById(userId);
+    if (!user) {
+      return new Promise((resolve, reject) => reject(new Error(404)));
+    }
+
+    // check if the password is correct
+    const isCorrect = await bcrypt.compare(password, user.password);
+    if (!isCorrect) {
+      return new Promise((resolve, reject) => reject(new Error(401)));
+    }
+
+    const user2FA = await db.User2fa.findOne({ where: { user_id: userId } });
+    if (!user2FA) {
+      return new Promise((resolve, reject) => reject({ error: "2FA not setup." }));
+    }
+
+    const totp = new TOTP({
+      secret: user2FA.secret
+    });
+
+    const delta = totp.validate({ token, window: 1 });
+    if (delta !== null) {
+      const backupCodes = [];
+      for (let i = 0; i < 10; i++) {
+        backupCodes.push(nanoid(8));
+      }
+      // Mark 2FA as enabled and add backup codes
+      await user2FA.update({ isEnabled: true, backup: JSON.stringify(backupCodes) });
+      return new Promise((resolve) => resolve(backupCodes));
+    } else {
+      return new Promise((resolve, reject) => reject({ error: "Invalid token." }));
+    }
+  }
+
+  get2faMethods(userId) {
+    return db.User2fa.findAll({
+      where: { user_id: userId, isEnabled: true },
+      attributes: { exclude: ["secret", "backup"] },
+    })
+      .then((methods) => {
+        return new Promise((resolve) => resolve(methods));
+      })
+      .catch((error) => {
+        return new Promise((resolve, reject) => reject(error));
+      });
+  }
+
+  async remove2faMethod(userId, methodId, password) {
+    const user = await this.findById(userId);
+
+    const isCorrect = await bcrypt.compare(password, user.password);
+    if (!isCorrect) {
+      return new Promise((resolve, reject) => reject(new Error(401)));
+    }
+
+    return db.User2fa.destroy({ where: { user_id: userId, id: methodId } })
+      .then(() => {
+        return new Promise((resolve) => resolve(true));
+      })
+      .catch((error) => {
+        return new Promise((resolve, reject) => reject(error));
+      });
+  }
+
+  validate2faToken(userId, token) {
+    const user2FA = db.User2fa.findOne({ where: { user_id: userId, isEnabled: true } });
+
+    if (!user2FA) {
+      return new Promise((resolve, reject) => reject(new Error(404)));
+    }
+
+    const totp = new TOTP({
+      secret: user2FA.secret
+    });
+
+    const delta = totp.validate({ token, window: 1 });
+
+    if (delta !== null) {
+      return this.findById(userId);
+    } else {
+      return new Promise((resolve, reject) => reject(new Error(401)));
+    }
   }
 }
 

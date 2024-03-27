@@ -37,6 +37,7 @@ class AxisChart {
       y: [],
     };
     this.dateFormat = "";
+    this.removeYear = false;
     this.timezone = timezone;
     if (this.timezone) {
       this.moment = (...args) => momentObj(...args).tz(this.timezone);
@@ -431,8 +432,12 @@ class AxisChart {
             const newY = [];
             this.axisData.y[yLength].map((item, index) => {
               let formattedItem = item;
-              if (determineType(item) === "number") {
-                formattedItem = parseFloat(item);
+              try {
+                if (determineType(item) === "number" || determineType(item) === "string") {
+                  formattedItem = parseFloat(item);
+                }
+              } catch (e) {
+                // do nothing
               }
 
               if (index > 0) {
@@ -634,6 +639,13 @@ class AxisChart {
       }
     });
 
+    // remove the year from the labels
+    if (this.removeYear) {
+      newLabels = newLabels.map((label) => {
+        return label.replace(/\b\d{4}\b/g, "").trim();
+      });
+    }
+
     configuration.data.datasets = newDatasets;
     configuration.data.labels = newLabels;
     // calculate the growth values
@@ -771,10 +783,12 @@ class AxisChart {
 
     pairedData = pairedData.sort((a, b) => a.xItem && b.xItem && a.xItem.diff(b.xItem));
     axisData = pairedData.map((item) => item.xItem);
+    axisData = axisData.filter((item) => !!item);
 
     finalData.yData = pairedData.map((item) => item.yItem);
 
     finalData.filtered = _.cloneDeep(axisData);
+    finalData.filtered = finalData.filtered.filter((item) => !!item);
     finalData.timestamps = finalData.filtered.map((item) => item.valueOf());
     finalData.filtered = finalData.filtered.map((item) => item.format());
 
@@ -790,7 +804,8 @@ class AxisChart {
             this.dateFormat = "YYYY/MM/DD HH:mm:ss";
             axisData[i] = axisData[i].format(this.dateFormat);
           } else if (startDate.month() !== endDate.month()) {
-            this.dateFormat = "MMM Do HH:mm:ss";
+            this.dateFormat = "YYYY MMM Do HH:mm:ss";
+            this.removeYear = true;
             axisData[i] = axisData[i].format(this.dateFormat);
           } else if (startDate.week() !== endDate.week()
             && this.moment().week() !== startDate.week()
@@ -815,7 +830,8 @@ class AxisChart {
             this.dateFormat = "YYYY/MM/DD HH:mm";
             axisData[i] = axisData[i].format(this.dateFormat);
           } else if (startDate.month() !== endDate.month()) {
-            this.dateFormat = "MMM Do HH:mm";
+            this.dateFormat = "YYYY MMM Do HH:mm";
+            this.removeYear = true;
             axisData[i] = axisData[i].format(this.dateFormat);
           } else if (startDate.week() !== endDate.week()
             && this.moment().week() !== startDate.week()
@@ -840,7 +856,8 @@ class AxisChart {
             this.dateFormat = "YYYY/MM/DD hA";
             axisData[i] = axisData[i].format(this.dateFormat);
           } else if (startDate.month() !== endDate.month()) {
-            this.dateFormat = "MMM Do hA";
+            this.dateFormat = "YYYY MMM Do hA";
+            this.removeYear = true;
             axisData[i] = axisData[i].format(this.dateFormat);
           } else {
             this.dateFormat = "ddd Do hA";
@@ -856,7 +873,8 @@ class AxisChart {
             this.dateFormat = "YYYY MMM D";
             axisData[i] = axisData[i].format(this.dateFormat);
           } else {
-            this.dateFormat = "MMM D";
+            this.dateFormat = "YYYY MMM D";
+            this.removeYear = true;
             axisData[i] = axisData[i].format(this.dateFormat);
           }
           break;
@@ -883,7 +901,8 @@ class AxisChart {
             this.dateFormat = "MMM YYYY";
             axisData[i] = axisData[i].format(this.dateFormat);
           } else {
-            this.dateFormat = "MMM";
+            this.dateFormat = "MMM YYYY";
+            this.removeYear = true;
             axisData[i] = axisData[i].format(this.dateFormat);
           }
           break;
@@ -892,7 +911,7 @@ class AxisChart {
           axisData[i] = axisData[i].format(this.dateFormat);
           break;
         default:
-          this.dateFormat = "MMM D";
+          this.dateFormat = "YYYY MMM D";
           axisData[i] = axisData[i].format(this.dateFormat);
           break;
       }

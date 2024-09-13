@@ -10,16 +10,13 @@ import { TwitterPicker } from "react-color";
 import { Helmet } from "react-helmet";
 import { clone } from "lodash";
 import { useDropzone } from "react-dropzone";
-import { ToastContainer, toast, Flip } from "react-toastify";
-import "react-toastify/dist/ReactToastify.min.css";
+import toast from "react-hot-toast";
 import {
   LuArrowLeftSquare,
   LuCheckCircle, LuChevronLeft, LuClipboardEdit, LuEye, LuImagePlus, LuPalette,
   LuRefreshCw, LuShare, LuXCircle,
 } from "react-icons/lu";
 import { WidthProvider, Responsive } from "react-grid-layout";
-import useDarkMode from "@fisch0920/use-dark-mode";
-import { useLocalStorage } from "react-use";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
@@ -43,7 +40,7 @@ import instructionDashboard from "../../assets/instruction-dashboard-report.png"
 import Text from "../../components/Text";
 import Row from "../../components/Row";
 import Container from "../../components/Container";
-import useThemeDetector from "../../modules/useThemeDetector";
+import { useTheme } from "../../modules/ThemeContext";
 
 const ResponsiveGridLayout = WidthProvider(Responsive, { measureBeforeMount: true });
 
@@ -76,14 +73,12 @@ function PublicDashboard(props) {
   const [refreshLoading, setRefreshLoading] = useState(false);
   const [layouts, setLayouts] = useState(null);
   const [logoAspectRatio, setLogoAspectRatio] = useState(1);
-  const [isOsTheme, setIsOsTheme] = useLocalStorage("osTheme", "false"); // eslint-disable-line
 
   const teams = useSelector(selectTeams);
   const charts = useSelector(selectCharts);
 
   const [searchParams] = useSearchParams();
-  const isDark = useThemeDetector();
-  const darkMode = useDarkMode(false);
+  const { setTheme, isDark } = useTheme();
   const params = useParams();
   const dispatch = useDispatch();
   const initLayoutRef = useRef(null);
@@ -109,10 +104,10 @@ function PublicDashboard(props) {
     setLoading(true);
     _fetchProject(window.localStorage.getItem("reportPassword"));
 
-    if (searchParams.get("theme") && searchParams.get("theme") !== "os") {
-      _setTheme(searchParams.get("theme"));
+    if (searchParams.get("theme") === "light" || searchParams.get("theme") === "dark") {
+      setTheme(searchParams.get("theme"));
     } else {
-      _setOSTheme();
+      setTheme("system");
     }
   }, []);
 
@@ -171,6 +166,7 @@ function PublicDashboard(props) {
   useEffect(() => {
     if (project?.id) {
       _checkSearchParamsForFilters();
+      _checkSearchParamsForFields();
     }
   }, [project]);
 
@@ -221,10 +217,12 @@ function PublicDashboard(props) {
       // check if there are any filters in the search params
       // if so, add them to the conditions
       const params = [];
-      searchParams.entries().forEach((entry) => {
-        const [key, value] = entry;
-        params.push({ variable: key, value });
-      });
+      if (searchParams && searchParams.entries()?.length > 0) {
+        searchParams.entries().forEach((entry) => {
+          const [key, value] = entry;
+          params.push({ variable: key, value });
+        });
+      }
 
       if (params.length === 0) return;
 
@@ -252,17 +250,57 @@ function PublicDashboard(props) {
       if (newConditions.length === 0) return;
 
       dispatch(runQueryWithFilters({ project_id: chart.project_id, chart_id: chart.id, filters: newConditions }))
-        // .then((data) => {
-        //   if (data.payload) {
-        //     setChart(data.payload);
-        //   }
-
-        //   setDataLoading(false);
-        // })
-        // .catch(() => {
-        //   setDataLoading(false);
-        // });
     });
+  };
+
+  const _checkSearchParamsForFields = () => {
+    if (!searchParams || searchParams.entries()?.length === 0) return;
+
+    const filters = [];
+    searchParams.entries().forEach((entry) => {
+      const [key, value] = entry;
+      if (key.startsWith("fields[")) {
+        let field = key.replace("fields[", "");
+        field = field.substring(0, field.length - 1);
+        if (!field.includes("root[].")) {
+          field = `root[].${field}`;
+        }
+
+        filters.push({ field, value, operator: "is", project_id: project.id });
+      }
+    });
+
+    const refreshPromises = [];
+    charts.forEach((chart) => {
+      if (_chartHasFilter(chart, filters)) {
+        refreshPromises.push(
+          dispatch(runQueryWithFilters({
+            project_id: project.id,
+            chart_id: chart.id,
+            filters
+          }))
+        );
+      }
+    });
+
+    return Promise.all(refreshPromises);
+  };
+
+  const _chartHasFilter = (chart, filters) => {
+    let found = false;
+    if (chart.ChartDatasetConfigs) {
+      chart.ChartDatasetConfigs.forEach((cdc) => {
+        if (cdc.Dataset?.fieldsSchema) {
+          Object.keys(cdc.Dataset.fieldsSchema).forEach((key) => {
+            if (filters && filters.some(o => o.field === key || `root[].${o.field}` === key || `root.${o.field}` === key)) {
+              found = true;
+            }
+          });
+        }
+      });
+    }
+
+    return found;
   };
 
   const _isOnReport = () => {
@@ -378,29 +416,6 @@ function PublicDashboard(props) {
     setLogoAspectRatio(aspectRatio);
   };
 
-  const _setOSTheme = () => {
-    if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-      darkMode.enable();
-    } else {
-      darkMode.disable();
-    }
-
-    window.localStorage.removeItem("darkMode");
-    setIsOsTheme(true);
-  };
-
-  const _setTheme = (mode) => {
-    setIsOsTheme(false);
-    if (mode === "dark") {
-      darkMode.enable();
-    } else {
-      darkMode.enable();
-      setTimeout(() => {
-        darkMode.disable();
-      }, 100);
-    }
-  };
-
   if (loading && !project?.id && !noCharts) {
     return (
       <>
@@ -476,20 +491,6 @@ function PublicDashboard(props) {
             </Row>
           </div>
         )}
-
-        <ToastContainer
-          position="bottom-center"
-          autoClose={1500}
-          hideProgressBar={false}
-          newestOnTop={false}
-          closeOnClick
-          rtl={false}
-          pauseOnVisibilityChange
-          draggable
-          pauseOnHover
-          transition={Flip}
-          theme={isDark ? "dark" : "light"}
-        />
       </div>
     );
   }
@@ -586,7 +587,7 @@ function PublicDashboard(props) {
                 </Tooltip>
               </div>
 
-              {project?.id && _canAccess("projectAdmin") && (
+              {project?.id && _canAccess("projectEditor") && (
                 <>
                   <div>
                     <Tooltip content="Change logo" placement="right-end">
@@ -949,20 +950,6 @@ function PublicDashboard(props) {
           onSavePassword={_onSavePassword}
         />
       )}
-
-      <ToastContainer
-        position="bottom-center"
-        autoClose={1500}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnVisibilityChange
-        draggable
-        pauseOnHover
-        transition={Flip}
-        theme={isDark ? "dark" : "light"}
-      />
     </div>
   );
 }

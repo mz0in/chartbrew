@@ -14,7 +14,7 @@ import "ace-builds/src-min-noconflict/theme-one_dark";
 import Text from "../../../components/Text";
 import Container from "../../../components/Container";
 import Row from "../../../components/Row";
-import useThemeDetector from "../../../modules/useThemeDetector";
+import { useTheme } from "../../../modules/ThemeContext";
 import { RiArrowRightSLine } from "react-icons/ri";
 import { useDispatch } from "react-redux";
 import { useParams } from "react-router";
@@ -59,7 +59,7 @@ function MysqlConnectionForm(props) {
     sslKey: null,
   });
 
-  const isDark = useThemeDetector();
+  const { isDark } = useTheme();
   const dispatch = useDispatch();
   const params = useParams();
   const initRef = useRef(null);
@@ -216,7 +216,7 @@ function MysqlConnectionForm(props) {
   };
 
   if (editConnection && !connection.id) {
-    return <CircularProgress />;
+    return <CircularProgress aria-label="Loading connection" />;
   }
 
   return (
@@ -404,11 +404,11 @@ function MysqlConnectionForm(props) {
                 selectionMode="single"
                 disallowEmptySelection
               >
-                <SelectItem key="require">{"Require"}</SelectItem>
-                <SelectItem key="disable">{"Disable"}</SelectItem>
-                <SelectItem key="prefer">{"Prefer"}</SelectItem>
-                <SelectItem key="verify-ca">{"Verify CA"}</SelectItem>
-                <SelectItem key="verify-full">{"Verify Full"}</SelectItem>
+                <SelectItem key="require" textValue="Require">{"Require"}</SelectItem>
+                <SelectItem key="disable" textValue="Disable">{"Disable"}</SelectItem>
+                <SelectItem key="prefer" textValue="Prefer">{"Prefer"}</SelectItem>
+                <SelectItem key="verify-ca" textValue="Verify CA">{"Verify CA"}</SelectItem>
+                <SelectItem key="verify-full" textValue="Verify Full">{"Verify Full"}</SelectItem>
               </Select>
             </Row>
             <Spacer y={2} />

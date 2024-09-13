@@ -4,12 +4,10 @@ import {
 } from "@nextui-org/react";
 import moment from "moment";
 import { Helmet } from "react-helmet";
-import useDarkMode from "@fisch0920/use-dark-mode";
 import { useSearchParams } from "react-router-dom";
 import { LuListFilter } from "react-icons/lu";
 import { useParams } from "react-router";
 import { useDispatch } from "react-redux";
-import { useLocalStorage } from "react-use";
 
 import {
   getEmbeddedChart, runQueryWithFilters,
@@ -28,6 +26,7 @@ import Text from "../components/Text";
 import Callout from "../components/Callout";
 import KpiMode from "./Chart/components/KpiMode";
 import useChartSize from "../modules/useChartSize";
+import { useTheme } from "../modules/ThemeContext";
 
 const pageHeight = window.innerHeight;
 
@@ -41,11 +40,10 @@ function EmbeddedChart() {
   const [conditions, setConditions] = useState([]);
   const [dataLoading, setDataLoading] = useState(false);
   const [redraw, setRedraw] = useState(true);
-  const [isOsTheme, setIsOsTheme] = useLocalStorage("osTheme", "false"); // eslint-disable-line
 
   const params = useParams();
   const dispatch = useDispatch();
-  const darkMode = useDarkMode(false);
+  const { setTheme } = useTheme();
   const [searchParams] = useSearchParams();
   const filterRef = useRef(null);
   const chartSize = useChartSize(chart.layout);
@@ -60,7 +58,7 @@ function EmbeddedChart() {
       .catch(() => {
         setDataLoading(false);
       });
-  }, chart?.autoUpdate ? chart.autoUpdate * 1000 : null);
+  }, chart?.autoUpdate > 0 && chart.autoUpdate < 600 ? chart.autoUpdate * 1000 : 600000);
 
   useEffect(() => {
     // change the background color to transparent
@@ -80,10 +78,10 @@ function EmbeddedChart() {
         });
     }, 1000);
 
-    if (searchParams.get("theme") && searchParams.get("theme") !== "os") {
-      _setTheme(searchParams.get("theme"));
+    if (searchParams.get("theme") === "light" || searchParams.get("theme") === "dark") {
+      setTheme(searchParams.get("theme"));
     } else {
-      _setOSTheme();
+      setTheme("system");
     }
   }, []);
 
@@ -99,10 +97,12 @@ function EmbeddedChart() {
     // check if there are any filters in the search params
     // if so, add them to the conditions
     const params = [];
-    searchParams.entries().forEach((entry) => {
-      const [key, value] = entry;
-      params.push({ variable: key, value });
-    });
+    if (searchParams && searchParams.entries()?.length > 0) {
+      searchParams.entries().forEach((entry) => {
+        const [key, value] = entry;
+        params.push({ variable: key, value });
+      });
+    }
 
     if (params.length === 0) return;
 
@@ -211,29 +211,6 @@ function EmbeddedChart() {
     return filterCount > 0;
   };
 
-  const _setOSTheme = () => {
-    if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-      darkMode.enable();
-    } else {
-      darkMode.disable();
-    }
-
-    window.localStorage.removeItem("darkMode");
-    setIsOsTheme(true);
-  };
-
-  const _setTheme = (mode) => {
-    setIsOsTheme(false);
-    if (mode === "dark") {
-      darkMode.enable();
-    } else {
-      darkMode.enable();
-      setTimeout(() => {
-        darkMode.disable();
-      }, 100);
-    }
-  };
-
   if (loading) {
     return (
       <>
@@ -252,7 +229,7 @@ function EmbeddedChart() {
         </Helmet>
         <div className="container mx-auto pt-10">
           <Row justify="center" align="center">
-            <CircularProgress color="default" />
+            <CircularProgress color="default" aria-label="Loading chart" />
           </Row>
         </div>
       </>
@@ -295,7 +272,7 @@ function EmbeddedChart() {
               )}
               {dataLoading && (
                 <>
-                  <CircularProgress classNames={{ svg: "w-4 h-4" }} />
+                  <CircularProgress classNames={{ svg: "w-4 h-4" }} aria-label="Updating chart" />
                   <Spacer x={1} />
                   <span className="text-[10px] text-default-500">{"Updating..."}</span>
                 </>

@@ -384,6 +384,7 @@ function Filters(props) {
                   variant="bordered"
                   selectedKey={variableCondition.variable}
                   onSelectionChange={(key) => setVariableCondition({ ...variableCondition, variable: key })}
+                  aria-label="Select a variable"
                 >
                   {project?.Variables?.map((variable) => (
                     <AutocompleteItem key={variable.name} textValue={variable.name}>
@@ -421,6 +422,7 @@ function Filters(props) {
                   onSelectionChange={(keys) => _updateFilter(keys.currentKey, "field")}
                   size="sm"
                   variant="bordered"
+                  aria-label="Select a field"
                 >
                   {fieldOptions.map((field) => (
                     <SelectItem
@@ -430,13 +432,14 @@ function Filters(props) {
                           {field.type}
                         </Chip>
                       )}
+                      textValue={field.text}
                     >
                       {field.text}
                     </SelectItem>
                   ))}
                 </Select>
                 <Spacer x={0.5} />
-                <Dropdown>
+                <Dropdown aria-label="Select an operator">
                   <DropdownTrigger>
                     <Button
                       variant="flat"
@@ -453,7 +456,7 @@ function Filters(props) {
                     onSelectionChange={(selection) => _updateFilter(Object.values(selection)[0], "operator")}
                   >
                     {operators.map((op) => (
-                      <DropdownItem key={op.value}>
+                      <DropdownItem key={op.value} textValue={op.text}>
                         {op.text}
                       </DropdownItem>
                     ))}

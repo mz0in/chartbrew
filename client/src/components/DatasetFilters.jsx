@@ -6,12 +6,12 @@ import { format, formatISO } from "date-fns";
 import { Calendar } from "react-date-range";
 import { enGB } from "date-fns/locale";
 import { find } from "lodash";
+import { nanoid } from "@reduxjs/toolkit";
 
 import Row from "./Row";
 import Text from "./Text";
 import { secondary } from "../config/colors";
 import { operators } from "../modules/filterOperations";
-import { nanoid } from "@reduxjs/toolkit";
 
 function DatasetFilters(props) {
   const { onUpdate, fieldOptions, dataset } = props;
@@ -19,6 +19,7 @@ function DatasetFilters(props) {
   const [conditions, setConditions] = useState([]);
   const [selectedCondition, setSelectedCondition] = useState({});
   const [conditionModal, setConditionModal] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (dataset.conditions) {
@@ -107,7 +108,7 @@ function DatasetFilters(props) {
     setConditionModal(true);
   };
 
-  const _onConfirmConditionSettings = () => {
+  const _onConfirmConditionSettings = async () => {
     const newConditions = conditions.map((item) => {
       let newItem = { ...item };
       if (item.id === selectedCondition.id) {
@@ -117,7 +118,9 @@ function DatasetFilters(props) {
       return newItem;
     });
 
-    onUpdate({ conditions: newConditions });
+    setIsLoading(true);
+    await onUpdate({ conditions: newConditions });
+    setIsLoading(false);
     setSelectedCondition({});
     setConditionModal(false);
   };
@@ -161,6 +164,8 @@ function DatasetFilters(props) {
                 selectedKey={condition.field}
                 onSelectionChange={(key) => _updateCondition(condition.id, key, "field")}
                 labelPlacement="outside"
+                size="sm"
+                aria-label="Field"
               >
                 {fieldOptions.filter((f) => !f.isObject).map((field) => (
                   <AutocompleteItem
@@ -176,7 +181,7 @@ function DatasetFilters(props) {
               </Autocomplete>
               <Spacer y={1} />
               <Row warp="wrap" className={"flex gap-2"} align="center">
-                <Dropdown>
+                <Dropdown aria-label="Select an operator">
                   <DropdownTrigger>
                     <Input
                       value={
@@ -189,6 +194,7 @@ function DatasetFilters(props) {
                       variant="bordered"
                       labelPlacement="outside"
                       className="max-w-[100px]"
+                      size="sm"
                     />
                   </DropdownTrigger>
                   <DropdownMenu
@@ -197,7 +203,7 @@ function DatasetFilters(props) {
                     selectionMode="single"
                   >
                     {operators.map((operator) => (
-                      <DropdownItem key={operator.value}>
+                      <DropdownItem key={operator.value} textValue={operator.text}>
                         {operator.text}
                       </DropdownItem>
                     ))}
@@ -214,6 +220,7 @@ function DatasetFilters(props) {
                         disabled={(condition.operator === "isNotNull" || condition.operator === "isNull")}
                         labelPlacement="outside"
                         variant="bordered"
+                        size="sm"
                       />
                     )}
                   {find(fieldOptions, { value: condition.field })
@@ -227,6 +234,7 @@ function DatasetFilters(props) {
                             disabled={(condition.operator === "isNotNull" || condition.operator === "isNull")}
                             labelPlacement="outside"
                             variant="bordered"
+                            size="sm"
                           />
                         </PopoverTrigger>
                         <PopoverContent>
@@ -453,6 +461,7 @@ function DatasetFilters(props) {
               onClick={_onConfirmConditionSettings}
               color="primary"
               isDisabled={selectedCondition.variable && !_isVariableValid(selectedCondition.variable)}
+              isLoading={isLoading}
             >
               Save settings
             </Button>

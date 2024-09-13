@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import PropTypes from "prop-types";
 import { useParams } from "react-router";
 import { useDispatch, useSelector } from "react-redux";
-import { toast } from "react-toastify";
+import toast from "react-hot-toast";
 import { TbMathFunctionY } from "react-icons/tb";
 import { LuCheckCircle, LuInfo, LuWand2, LuXCircle } from "react-icons/lu";
 
@@ -225,20 +225,22 @@ function DatasetBuilder(props) {
   };
 
   const _onUpdateDataset = (data) => {
-    dispatch(updateDataset({
+    return dispatch(updateDataset({
       team_id: dataset.team_id,
       dataset_id: dataset.id,
       data,
     }))
       .then(() => {
         toast.success("Dataset updated successfully.");
-        return dispatch(runQuery({
+        dispatch(runQuery({
           project_id: projectId,
           chart_id: chart.id,
           noSource: false,
           skipParsing: false,
           getCache: true,
         }));
+
+        return true;
       })
       .catch(() => {
         toast.error("Could not refresh the dataset. Please check your query.");
@@ -365,6 +367,7 @@ function DatasetBuilder(props) {
           selectedKey={dataset.xAxis}
           onSelectionChange={(key) => _onUpdateDataset({ xAxis: key })}
           isLoading={loadingFields}
+          aria-label="Select a dimension"
         >
           {_filterOptions("x").map((option) => (
             <AutocompleteItem
@@ -373,6 +376,7 @@ function DatasetBuilder(props) {
                 <Chip size="sm" variant="flat" className={"min-w-[70px] text-center"} color={option.label.color}>{option.label.content}</Chip>
               )}
               description={option.isObject ? "Key-Value visualization" : null}
+              textValue={option.text}
             >
               {option.text}
             </AutocompleteItem>
@@ -389,6 +393,7 @@ function DatasetBuilder(props) {
           selectedKey={dataset.yAxis}
           onSelectionChange={(key) => _onUpdateDataset({ yAxis: key })}
           isLoading={loadingFields}
+          aria-label="Select a metric"
         >
           {_getYFieldOptions().map((option) => (
             <AutocompleteItem
@@ -397,6 +402,7 @@ function DatasetBuilder(props) {
                 <Chip size="sm" variant="flat" className={"min-w-[70px] text-center"} color={option.label.color}>{option.label.content}</Chip>
               )}
               description={option.isObject ? "Key-Value visualization" : null}
+              textValue={option.text}
             >
               {option.text}
             </AutocompleteItem>
@@ -419,9 +425,10 @@ function DatasetBuilder(props) {
                 || "Operation"}
             </Text>
           )}
+          aria-label="Select an operation"
         >
           {operations.map((option) => (
-            <SelectItem key={option.value}>
+            <SelectItem key={option.value} textValue={option.text}>
               {option.text}
             </SelectItem>
           ))}
@@ -438,6 +445,7 @@ function DatasetBuilder(props) {
             selectedKey={dataset.dateField}
             onSelectionChange={(key) => _onUpdateDataset({ dateField: key })}
             isLoading={loadingFields}
+            aria-label="Select a date field used for filtering"
           >
             {_getDateFieldOptions().map((option) => (
               <AutocompleteItem
@@ -445,6 +453,7 @@ function DatasetBuilder(props) {
                 startContent={(
                   <Chip size="sm" variant="flat" className={"min-w-[70px] text-center"} color={option.label.color}>{option.label.content}</Chip>
                 )}
+                textValue={option.text}
               >
                 {option.text}
               </AutocompleteItem>
@@ -468,11 +477,11 @@ function DatasetBuilder(props) {
             <div className="flex flex-col">
               <Popover>
                 <PopoverTrigger>
-                  <div className="flex flex-row gap-1 items-center">
+                  <div className="flex flex-row gap-1 items-center cursor-pointer">
                     <span className="text-sm">
                       {"Metric formula"}
                     </span>
-                    <LuInfo size={18} />
+                    <LuInfo size={18} className="hover:text-primary" />
                   </div>
                 </PopoverTrigger>
                 <PopoverContent>

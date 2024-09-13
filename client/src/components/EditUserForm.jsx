@@ -2,8 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   Button, Divider, Input, CircularProgress, Modal, Spacer, ModalHeader, ModalBody, ModalFooter, ModalContent, Chip, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell,
 } from "@nextui-org/react";
-import { ToastContainer, toast, Flip } from "react-toastify";
-import "react-toastify/dist/ReactToastify.min.css";
+import toast, { Toaster } from "react-hot-toast";
 import { LuClipboardCheck, LuClipboardCopy, LuShieldCheck, LuTrash } from "react-icons/lu";
 
 import {
@@ -13,7 +12,7 @@ import Container from "./Container";
 import Row from "./Row";
 import Text from "./Text";
 import Callout from "./Callout";
-import useThemeDetector from "../modules/useThemeDetector";
+import { useTheme } from "../modules/ThemeContext";
 import { useNavigate } from "react-router";
 import { useDispatch, useSelector } from "react-redux";
 
@@ -43,7 +42,7 @@ function EditUserForm() {
   const userProp = useSelector(selectUser);
   const authMethods = useSelector((state) => state.user.auths);
 
-  const isDark = useThemeDetector();
+  const { isDark } = useTheme();
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
@@ -79,6 +78,7 @@ function EditUserForm() {
       .then(() => {
         setSuccess(true);
         setLoading(false);
+        toast.success("Your account has been updated.");
       })
       .catch(() => {
         setSubmitError(true);
@@ -376,7 +376,7 @@ function EditUserForm() {
       )}
 
       {authMethods?.length > 0 && (
-        <Table>
+        <Table aria-label="Two-factor authentication methods">
           <TableHeader>
             <TableColumn key="method" align="center">Method</TableColumn>
             <TableColumn key="isEnabled" align="center">Enabled</TableColumn>
@@ -540,18 +540,17 @@ function EditUserForm() {
         </ModalContent>
       </Modal>
 
-      <ToastContainer
-        position="top-right"
-        autoClose={2500}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnVisibilityChange
-        draggable
-        pauseOnHover
-        transition={Flip}
-        theme={isDark ? "dark" : "light"}
+      <Toaster
+        position="top-center"
+        reverseOrder={false}
+        toastOptions={{
+          duration: 2500,
+          style: {
+            borderRadius: "8px",
+            background: isDark ? "#333" : "#fff",
+            color: isDark ? "#fff" : "#000",
+          },
+        }}
       />
     </div>
   );

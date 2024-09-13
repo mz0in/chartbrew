@@ -209,9 +209,10 @@ function PlausibleTemplate(props) {
               selectedKeys={[selectedConnection]}
               selectionMode="single"
               onSelectionChange={(keys) => setSelectedConnection(keys.currentKey)}
+              aria-label="Select a connection"
             >
               {availableConnections.map((connection) => (
-                <SelectItem key={connection.key}>
+                <SelectItem key={connection.key} textValue={connection.text}>
                   {connection.text}
                 </SelectItem>
               ))}

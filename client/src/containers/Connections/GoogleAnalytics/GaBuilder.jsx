@@ -7,7 +7,7 @@ import {
 } from "@nextui-org/react";
 import AceEditor from "react-ace";
 import _ from "lodash";
-import { toast } from "react-toastify";
+import toast from "react-hot-toast";
 import { Calendar } from "react-date-range";
 import { format, sub } from "date-fns";
 import { enGB } from "date-fns/locale";
@@ -26,7 +26,7 @@ import { getMetadata } from "./apiBoilerplate";
 import { secondary } from "../../../config/colors";
 import Row from "../../../components/Row";
 import Text from "../../../components/Text";
-import useThemeDetector from "../../../modules/useThemeDetector";
+import { useTheme } from "../../../modules/ThemeContext";
 
 const validDate = /[0-9]{4}-[0-9]{2}-[0-9]{2}|today|yesterday|[0-9]+(daysAgo)/g;
 const validEndDate = /[0-9]{4}-[0-9]{2}-[0-9]{2}|today|yesterday|[0-9]+(daysAgo)/g;
@@ -63,7 +63,7 @@ function GaBuilder(props) {
   const [saveLoading, setSaveLoading] = useState(false);
   const [requestError, setRequestError] = useState("");
 
-  const isDark = useThemeDetector();
+  const { isDark } = useTheme();
   const initRef = React.useRef(null);
   const params = useParams();
   const dispatch = useDispatch();
@@ -429,6 +429,7 @@ function GaBuilder(props) {
                 isLoading={collectionsLoading}
                 onSelectionChange={(keys) => _onAccountSelected(keys.currentKey)}
                 selectionMode="single"
+                aria-label="Select an account"
               >
                 {accountOptions.map((account) => (
                   <SelectItem key={account.value} textValue={account.text}>
@@ -447,6 +448,7 @@ function GaBuilder(props) {
                 label="Property"
                 onSelectionChange={(keys) => _onPropertySelected(keys.currentKey)}
                 selectionMode="single"
+                aria-label="Select a property"
               >
                 {propertyOptions.map((property) => (
                   <SelectItem key={property.value} textValue={property.text}>
@@ -480,6 +482,7 @@ function GaBuilder(props) {
                 color={formErrors.metrics ? "danger" : "default"}
                 onSelectionChange={(key) => setConfiguration({ ...configuration, metrics: key })}
                 selectionMode="single"
+                aria-label="Select a metric"
               >
                 {metricsOptions.map((item) => {
                   return (
@@ -513,6 +516,7 @@ function GaBuilder(props) {
                 placeholder="Select a dimension"
                 errorMessage={formErrors.dimensions}
                 color={formErrors.dimensions ? "danger" : "default"}
+                aria-label="Select a dimension"
               >
                 {dimensionsOptions.map((item) => {
                   return (

@@ -19,7 +19,7 @@ const busboy = require("connect-busboy");
 
 const settings = process.env.NODE_ENV === "production" ? require("./settings") : require("./settings-dev");
 const routes = require("./api");
-const updateChartsCron = require("./modules/updateChartsCron");
+
 const cleanChartCache = require("./modules/CleanChartCache");
 const cleanAuthCache = require("./modules/CleanAuthCache");
 const parseQueryParams = require("./middlewares/parseQueryParams");
@@ -27,13 +27,14 @@ const db = require("./models/models");
 const packageJson = require("./package.json");
 const cleanGhostChartsCron = require("./modules/cleanGhostChartsCron");
 const { checkEncryptionKeys } = require("./modules/cbCrypto");
+const setUpQueues = require("./setUpQueues");
 
 // check if the encryption keys are valid 32-byte hex strings
 checkEncryptionKeys();
 
 // set up folders
-fs.mkdir(".cache", () => {});
-fs.mkdir("uploads", () => {});
+fs.mkdir(".cache", () => { });
+fs.mkdir("uploads", () => { });
 
 const app = express();
 app.settings = settings;
@@ -93,7 +94,7 @@ db.migrate()
       if (isMainCluster || !process.env.NODE_APP_INSTANCE) {
         // start CronJob, making sure the database is populated for the first time
         setTimeout(() => {
-          updateChartsCron();
+          setUpQueues(app);
           cleanChartCache();
           cleanAuthCache();
           cleanGhostChartsCron();

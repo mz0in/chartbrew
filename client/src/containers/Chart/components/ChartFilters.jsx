@@ -44,8 +44,8 @@ function ChartFilters(props) {
     });
   };
 
-  const _onOptionSelected = (value, condition) => {
-    if (!value) onClearFilter(condition);
+  const _onOptionSelected = (value, condition, clear = false) => {
+    if (clear) onClearFilter(condition);
     else onAddFilter({ ...condition, value });
   };
 
@@ -120,6 +120,7 @@ function ChartFilters(props) {
               {condition.type !== "date" && !condition.hideValues && (
                 <>
                   <Autocomplete
+                    label={!inline ? `${condition.displayName || condition.field.substring(condition.field.lastIndexOf(".") + 1)} ${operations.operators?.find((o) => condition.operator === o.value)?.text}` : null}
                     variant="bordered"
                     selectedKey={_getConditionValue(condition.id)}
                     onSelectionChange={(key) => {
@@ -127,7 +128,6 @@ function ChartFilters(props) {
                     }}
                     onInputChange={(value) => _onOptionValueChange(value, condition)}
                     onKeyDown={(e) => _onKeyDown(e, condition)}
-                    labelPlacement="outside"
                     placeholder={inline
                       ? _getConditionValue(condition.id) || `${condition.displayName || condition.field.substring(condition.field.lastIndexOf(".") + 1)} ${operations.operators?.find((o) => condition.operator === o.value)?.text}`
                       : _getConditionValue(condition.id) || "Search here"
@@ -137,9 +137,10 @@ function ChartFilters(props) {
                     }}
                     allowsCustomValue
                     size={size}
+                    aria-label="Filter"
                   >
-                    {_getFilteredOptions(filterOptions, condition.id).map((opt) => (
-                      <AutocompleteItem key={opt.value}>
+                    {_getFilteredOptions(filterOptions, condition.id).slice(0, 50).map((opt) => (
+                      <AutocompleteItem key={opt.value} textValue={opt.text}>
                         {opt.text}
                       </AutocompleteItem>
                     ))}
@@ -191,7 +192,7 @@ function ChartFilters(props) {
                       <Button
                         variant="light"
                         isIconOnly
-                        onClick={() => _onOptionSelected("", condition)}
+                        onClick={() => _onOptionSelected("", condition, true)}
                         size={size}
                       >
                         <LuX />
@@ -221,7 +222,7 @@ function ChartFilters(props) {
                       <Button
                         variant="light"
                         isIconOnly
-                        onClick={() => _onOptionSelected("", condition)}
+                        onClick={() => _onOptionSelected("", condition, true)}
                         size={size}
                       >
                         <LuX />

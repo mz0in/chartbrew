@@ -6,8 +6,7 @@ import {
   AutocompleteItem,
   Button, CircularProgress, Divider, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Spacer,
 } from "@nextui-org/react";
-import { ToastContainer, toast, Flip } from "react-toastify";
-import "react-toastify/dist/ReactToastify.min.css";
+import toast from "react-hot-toast";
 import { LuClock4, LuTrash, LuX } from "react-icons/lu";
 import { useNavigate } from "react-router";
 
@@ -18,7 +17,6 @@ import timezones from "../modules/timezones";
 import Callout from "../components/Callout";
 import Row from "../components/Row";
 import Text from "../components/Text";
-import useThemeDetector from "../modules/useThemeDetector";
 import Segment from "../components/Segment";
 import { selectTeam } from "../slices/team";
 
@@ -44,7 +42,6 @@ function ProjectSettings(props) {
   const team = useSelector(selectTeam);
   const project = useSelector(selectProject);
 
-  const isDark = useThemeDetector();
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
@@ -154,7 +151,7 @@ function ProjectSettings(props) {
           <Button
             type="submit"
             color={success ? "success" : error ? "danger" : "primary"}
-            isDisabled={!_canAccess("projectAdmin")}
+            isDisabled={!_canAccess("projectEditor")}
             onClick={_onSaveName}
             isLoading={loading}
           >
@@ -177,6 +174,7 @@ function ProjectSettings(props) {
           }}
           selectedKey={projectTimezone || project.timezone}
           className="max-w-md"
+          aria-label="Timezone"
         >
           {timezones.map((timezone) => (
             <AutocompleteItem key={timezone} textValue={timezone}>
@@ -188,7 +186,7 @@ function ProjectSettings(props) {
         <Button
           color="primary"
           variant="light"
-          disabled={!_canAccess("projectAdmin")}
+          disabled={!_canAccess("projectEditor")}
           onClick={() => _onGetMachineTimezone()}
           startContent={<LuClock4 />}
         >
@@ -200,7 +198,7 @@ function ProjectSettings(props) {
       <Spacer y={2} />
       <Row>
         <Button
-          isDisabled={!_canAccess("projectAdmin") || !projectTimezone || projectTimezone === project.timezone}
+          isDisabled={!_canAccess("projectEditor") || !projectTimezone || projectTimezone === project.timezone}
           onClick={() => _onSaveTimezone()}
           isLoading={loadingTimezone}
           color="primary"
@@ -212,7 +210,7 @@ function ProjectSettings(props) {
           <Button
             color="warning"
             variant="flat"
-            disabled={!_canAccess("projectAdmin")}
+            disabled={!_canAccess("projectEditor")}
             endContent={<LuX />}
             onClick={() => _onSaveTimezone(true)}
           >
@@ -282,20 +280,6 @@ function ProjectSettings(props) {
           </ModalFooter>
         </ModalContent>
       </Modal>
-
-      <ToastContainer
-        position="bottom-center"
-        autoClose={1500}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnVisibilityChange
-        draggable
-        pauseOnHover
-        transition={Flip}
-        theme={isDark ? "dark" : "light"}
-      />
     </Segment>
   );
 }

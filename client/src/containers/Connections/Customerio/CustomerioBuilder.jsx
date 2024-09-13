@@ -4,7 +4,7 @@ import {
   Button, Spacer, Checkbox, Tooltip, Divider, Tabs, Tab,
 } from "@nextui-org/react";
 import AceEditor from "react-ace";
-import { toast } from "react-toastify";
+import toast from "react-hot-toast";
 import { LuInfo, LuMessageCircle, LuPlay, LuTrash, LuUsers2 } from "react-icons/lu";
 import { useParams } from "react-router";
 import { useDispatch, useSelector } from "react-redux";
@@ -18,7 +18,7 @@ import CampaignsQuery from "./CampaignsQuery";
 import Container from "../../../components/Container";
 import Row from "../../../components/Row";
 import Text from "../../../components/Text";
-import useThemeDetector from "../../../modules/useThemeDetector";
+import { useTheme } from "../../../modules/ThemeContext";
 import { runDataRequest, selectDataRequests } from "../../../slices/dataset";
 
 /*
@@ -37,7 +37,7 @@ function CustomerioBuilder(props) {
   const [saveLoading, setSaveLoading] = useState(false);
   const [requestError, setRequestError] = useState("");
 
-  const isDark = useThemeDetector();
+  const { isDark } = useTheme();
   const params = useParams();
   const dispatch = useDispatch();
 

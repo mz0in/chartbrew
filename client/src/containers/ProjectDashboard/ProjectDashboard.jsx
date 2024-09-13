@@ -9,10 +9,10 @@ import {
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useWindowSize } from "react-use";
 import _, { isEqual } from "lodash";
-import { ToastContainer, toast, Flip } from "react-toastify";
-import "react-toastify/dist/ReactToastify.min.css";
+import toast from "react-hot-toast";
 import moment from "moment";
 import {
+  LuCalendarClock,
   LuCopyPlus, LuFileDown, LuLayoutDashboard, LuListFilter,
   LuPlusCircle, LuRefreshCw, LuUser, LuUsers2, LuVariable, LuXCircle,
 } from "react-icons/lu";
@@ -30,7 +30,6 @@ import {
 import canAccess from "../../config/canAccess";
 import ChartExport from "./components/ChartExport";
 import CreateTemplateForm from "../../components/CreateTemplateForm";
-import useThemeDetector from "../../modules/useThemeDetector";
 import Row from "../../components/Row";
 import Text from "../../components/Text";
 import { selectProjectMembers, selectTeam } from "../../slices/team";
@@ -38,6 +37,8 @@ import { TbChevronDownRight } from "react-icons/tb";
 import { widthSize } from "../../modules/layoutBreakpoints";
 import { selectUser } from "../../slices/user";
 import gridBreakpoints from "../../config/gridBreakpoints";
+import UpdateSchedule from "./components/UpdateSchedule";
+import { selectProject } from "../../slices/project";
 
 const ResponsiveGridLayout = WidthProvider(Responsive, { measureBeforeMount: true });
 
@@ -94,6 +95,7 @@ function ProjectDashboard(props) {
   const [layouts, setLayouts] = useState(null);
   const [editingLayout, setEditingLayout] = useState(false);
   const [variables, setVariables] = useState(getVariablesFromStorage());
+  const [scheduleVisible, setScheduleVisible] = useState(false);
 
   const params = useParams();
   const dispatch = useDispatch();
@@ -102,28 +104,36 @@ function ProjectDashboard(props) {
   const team = useSelector(selectTeam);
   const user = useSelector(selectUser);
   const charts = useSelector(selectCharts);
+  const project = useSelector(selectProject);
   const chartsLoading = useSelector((state) => state.chart.loading);
   const projectMembers = useSelector((state) => selectProjectMembers(state, params.projectId));
 
   const { width } = useWindowSize();
-  const isDark = useThemeDetector();
   const initLayoutRef = useRef(null);
+  const hasRunInitialFiltering = useRef(false);
 
   useEffect(() => {
     cleanErrors();
   }, []);
 
   useEffect(() => {
-    if (!filterLoading && filters && initLayoutRef.current) {
+    if (!filterLoading && filters && charts.length > 0 && !hasRunInitialFiltering.current) {
+      hasRunInitialFiltering.current = true;
       _runFiltering();
     }
-  }, [filters, initLayoutRef.current]);
+  }, [filters, charts]);
+
+  useEffect(() => {
+    if (!filterLoading && filters && hasRunInitialFiltering.current) {
+      _runFiltering();
+    }
+  }, [filters]);
 
   useEffect(() => {
     if (variables?.[params.projectId] && initLayoutRef.current) {
       _checkVariablesForFilters(variables[params.projectId]);
     }
-  }, [variables]);
+  }, [variables, initLayoutRef.current]);
 
   useEffect(() => {
     if (charts && charts.filter((c) => c.project_id === parseInt(params.projectId, 10)).length > 0 && !initLayoutRef.current) {
@@ -275,13 +285,13 @@ function ProjectDashboard(props) {
   };
 
   const _runFiltering = (currentFilters = filters) => {
+    if (!variables?.[params.projectId]) return;
+
     setFilterLoading(true);
-    setTimeout(() => {
-      _onFilterCharts(currentFilters)
-        .then(() => {
-          _checkVariablesForFilters(variables[params.projectId]);
-        });
-    }, 500);
+    _onFilterCharts(currentFilters)
+      .then(() => {
+        _checkVariablesForFilters(variables[params.projectId]);
+      });
   };
 
   const _throttleRefreshes = (refreshes, index) => {
@@ -593,7 +603,7 @@ function ProjectDashboard(props) {
                             <Text>
                               {"Users with project access"}
                             </Text>
-                            <Listbox>
+                            <Listbox aria-label="Select a user">
                               {projectMembers.map((member) => (
                                 <ListboxItem
                                   key={member.id}
@@ -698,8 +708,26 @@ function ProjectDashboard(props) {
                   </div>
                 </Row>
                 <Row justify="flex-end" align="center">
+                  {!mobile && (
+                    <>
+                      <Spacer x={0.5} />
+                      <Tooltip content="Edit dashboard layout" placement="bottom-end">
+                        <Button
+                          variant="light"
+                          isIconOnly
+                          onClick={() => setEditingLayout(!editingLayout)}
+                          color={editingLayout ? "primary" : "default"}
+                          size="sm"
+                          className="dashboard-layout-tutorial"
+                        >
+                          <LuLayoutDashboard size={22} />
+                        </Button>
+                      </Tooltip>
+                    </>
+                  )}
                   {_canAccess("teamAdmin") && (
                     <>
+                      <Spacer x={0.5} />
                       <Tooltip content="Create a template from this dashboard" placement="bottom">
                         <Button
                           variant="light"
@@ -729,19 +757,19 @@ function ProjectDashboard(props) {
                       </Tooltip>
                     </>
                   )}
-                  {!mobile && (
+                  {_canAccess("projectEditor") && (
                     <>
-                      <Spacer x={0.5} />
-                      <Tooltip content="Edit dashboard layout" placement="bottom-end">
+                      <Tooltip content="Schedule data updates for this dashboard" placement="bottom">
                         <Button
                           variant="light"
                           isIconOnly
-                          onClick={() => setEditingLayout(!editingLayout)}
-                          color={editingLayout ? "primary" : "default"}
+                          onClick={() => setScheduleVisible(true)}
                           size="sm"
-                          className="dashboard-layout-tutorial"
                         >
-                          <LuLayoutDashboard size={22} />
+                          <LuCalendarClock
+                            className={`${project.updateSchedule?.frequency ? "text-primary" : ""}`}
+                            size={22}
+                          />
                         </Button>
                       </Tooltip>
                     </>
@@ -788,22 +816,25 @@ function ProjectDashboard(props) {
               </span>
             </Row>
             <Spacer y={1} />
-            <Row justify="center" align="center">
-              <span>
-                {"It looks empty over here. Let's create a chart to get started."}
-              </span>
-            </Row>
-            <Spacer y={4} />
-            <Row justify="center" align="center">
-              <Button
-                endContent={<LuPlusCircle size={24} />}
-                size="lg"
-                color="primary"
-                onClick={() => navigate(`/${params.teamId}/${params.projectId}/chart`)}
-              >
-                Create a chart
-              </Button>
-            </Row>
+            {_canAccess("projectAdmin") && (
+              <>
+                <Row justify="center" align="center">
+                  <span>
+                    {"It looks empty over here. Let's create a chart to get started."}
+                  </span>
+                </Row>
+                <Spacer y={4} /><Row justify="center" align="center">
+                  <Button
+                    endContent={<LuPlusCircle size={24} />}
+                    size="lg"
+                    color="primary"
+                    onClick={() => navigate(`/${params.teamId}/${params.projectId}/chart`)}
+                  >
+                    Create a chart
+                  </Button>
+                </Row>
+              </>
+            )}
           </div>
         )}
 
@@ -864,11 +895,17 @@ function ProjectDashboard(props) {
               loading={exportLoading}
               error={exportError}
               onUpdate={(chartId, disabled) => _onUpdateExport(chartId, disabled)}
-              showDisabled={_canAccess("projectAdmin")}
+              showDisabled={_canAccess("projectEditor")}
             />
           </ModalBody>
         </ModalContent>
       </Modal>
+
+      <UpdateSchedule
+        isOpen={scheduleVisible}
+        onClose={() => setScheduleVisible(false)}
+        timezone={project.timezone}
+      />
 
       <CreateTemplateForm
         teamId={params.teamId}
@@ -878,20 +915,6 @@ function ProjectDashboard(props) {
           setTemplateVisible(false);
         }}
         visible={templateVisible}
-      />
-
-      <ToastContainer
-        position="top-right"
-        autoClose={1500}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnVisibilityChange
-        draggable
-        pauseOnHover
-        transition={Flip}
-        theme={isDark ? "dark" : "light"}
       />
     </div>
   );

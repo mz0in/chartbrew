@@ -158,7 +158,7 @@ function TableConfiguration(props) {
                         </Link>
                       )}
                       endContent={dataset?.configuration ? (
-                        <Dropdown>
+                        <Dropdown aria-label="Select a data formatting option">
                           <DropdownTrigger>
                             <Link
                               className="flex items-center"
@@ -168,7 +168,7 @@ function TableConfiguration(props) {
                             </Link>
                           </DropdownTrigger>
                           <DropdownMenu variant="bordered">
-                            <DropdownItem startContent={<LuSettings />}>
+                            <DropdownItem startContent={<LuSettings />} textValue="Data formatting">
                               <Link className="w-full" onClick={() => _onSelectFieldForFormatting(field.accessor)}>
                                 <Text>Data formatting</Text>
                               </Link>

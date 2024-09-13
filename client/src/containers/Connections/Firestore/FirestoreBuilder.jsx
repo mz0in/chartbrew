@@ -7,7 +7,7 @@ import {
 } from "@nextui-org/react";
 import AceEditor from "react-ace";
 import _ from "lodash";
-import { toast } from "react-toastify";
+import toast from "react-hot-toast";
 import { v4 as uuid } from "uuid";
 import { Calendar } from "react-date-range";
 import { format, formatISO } from "date-fns";
@@ -31,7 +31,7 @@ import determineType from "../../../modules/determineType";
 import Container from "../../../components/Container";
 import Row from "../../../components/Row";
 import Text from "../../../components/Text";
-import useThemeDetector from "../../../modules/useThemeDetector";
+import { useTheme } from "../../../modules/ThemeContext";
 import { runDataRequest, selectDataRequests } from "../../../slices/dataset";
 
 export const operators = [{
@@ -112,7 +112,7 @@ function FirestoreBuilder(props) {
   const [orderByDirection, setOrderByDirection] = useState("desc");
   const [requestError, setRequestError] = useState("");
 
-  const isDark = useThemeDetector();
+  const { isDark } = useTheme();
   const params = useParams();
   const dispatch = useDispatch();
 
@@ -632,6 +632,7 @@ function FirestoreBuilder(props) {
               selectionMode="single"
               label="Direction"
               size="sm"
+              aria-label="Select a direction"
             >
               <SelectItem key="desc" textValue="Descending">
                 Descending
@@ -881,6 +882,7 @@ function Conditions(props) {
                 onSelectionChange={(keys) => updateCondition(condition.id, keys.currentKey, "field")}
                 label="Field"
                 placeholder="Select a field"
+                aria-label="Select a field"
               >
                 {fieldOptions.map((option) => (
                   <SelectItem
@@ -905,6 +907,7 @@ function Conditions(props) {
                 selectionMode="single"
                 label="Operator"
                 placeholder="Select an operator"
+                aria-label="Select an operator"
               >
                 {operators.map((option) => (
                   <SelectItem key={option.value} textValue={option.key}>

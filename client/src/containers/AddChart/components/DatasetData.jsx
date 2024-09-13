@@ -656,6 +656,7 @@ function DatasetData(props) {
                       onSelectionChange={(keys) => _selectXField(keys.currentKey)}
                       selectedKeys={[dataset.xAxis]}
                       selectionMode="single"
+                      aria-label="Select a dimension"
                     >
                       {_filterOptions("x").map((option) => (
                         <ListboxItem
@@ -731,6 +732,7 @@ function DatasetData(props) {
                       onSelectionChange={(keys) => _selectDateField(keys.currentKey)}
                       selectedKeys={[dataset.dateField]}
                       selectionMode="single"
+                      aria-label="Select a date field"
                     >
                       {_getDateFieldOptions().map((option) => (
                         <ListboxItem
@@ -803,6 +805,7 @@ function DatasetData(props) {
                           onSelectionChange={(keys) => _selectYField(keys.currentKey)}
                           selectedKeys={[dataset.yAxis]}
                           selectionMode="single"
+                          aria-label="Select a metric"
                         >
                           {_getYFieldOptions().map((option) => (
                             <ListboxItem
@@ -836,9 +839,10 @@ function DatasetData(props) {
                       || "Operation"}
                     </Text>
                   )}
+                  aria-label="Select an operation"
                 >
                   {operations.map((option) => (
-                    <SelectItem key={option.value}>
+                    <SelectItem key={option.value} textValue={option.text}>
                       {option.text}
                     </SelectItem>
                   ))}
@@ -1062,7 +1066,7 @@ function DatasetData(props) {
                                 </Link>
                               )}
                               endContent={(
-                                <Dropdown>
+                                <Dropdown aria-label="Select a table column option">
                                   <DropdownTrigger>
                                     <Link
                                       className="flex items-center"
@@ -1072,12 +1076,12 @@ function DatasetData(props) {
                                     </Link>
                                   </DropdownTrigger>
                                   <DropdownMenu variant="bordered">
-                                    <DropdownItem startContent={<LuSettings />}>
+                                    <DropdownItem startContent={<LuSettings />} textValue="Data formatting">
                                       <Link className="w-full" onClick={() => _onSelectFieldForFormatting(field.accessor)}>
                                         <Text>Data formatting</Text>
                                       </Link>
                                     </DropdownItem>
-                                    <DropdownItem startContent={<LuPlus />}>
+                                    <DropdownItem startContent={<LuPlus />} textValue="Enable sum calculation">
                                       <Link className="w-full" onClick={() => _onSumField(field.accessor)}>
                                         {dataset.configuration
                                           && dataset.configuration.sum === field.accessor
@@ -1259,6 +1263,7 @@ function DatasetData(props) {
                           onSelectionChange={(keys) => _updateCondition(condition.id, keys.currentKey, "field")}
                           selectedKeys={[condition.field]}
                           selectionMode="single"
+                          aria-label="Select a field"
                         >
                           {fieldOptions.filter((f) => !f.isObject).map((field) => (
                             <ListboxItem
@@ -1275,7 +1280,7 @@ function DatasetData(props) {
                       </div>
                     </PopoverContent>
                   </Popover>
-                  <Dropdown>
+                  <Dropdown aria-label="Select an operator">
                     <DropdownTrigger>
                       <Input
                         value={
@@ -1295,7 +1300,7 @@ function DatasetData(props) {
                       selectionMode="single"
                     >
                       {operators.map((operator) => (
-                        <DropdownItem key={operator.value}>
+                        <DropdownItem key={operator.value} textValue={operator.text}>
                           {operator.text}
                         </DropdownItem>
                       ))}

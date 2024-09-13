@@ -8,6 +8,8 @@ const PieChart = require("./PieChart");
 const determineType = require("../modules/determineType");
 const dataFilter = require("./dataFilter");
 
+const checkNumbersOnlyAndLength = /^\d{10,13}$/;
+
 momentObj.suppressDeprecationWarnings = true;
 
 const parser = new FormulaParser();
@@ -134,7 +136,7 @@ class AxisChart {
 
         let filteredData = filterData.data;
 
-        const dateDashboardFilter = filters?.find((f) => f.type === "date");
+        const dateDashboardFilter = filters && filters?.find((f) => f.type === "date");
         if (dateField
           && ((this.chart.startDate && this.chart.endDate) || dateDashboardFilter)
           && canDateFilter
@@ -760,15 +762,12 @@ class AxisChart {
     let pairedData = [];
     data.forEach((item, index) => {
       let xItem;
-      if (
-        item
-        && parseInt(item, 10).toString() === item.toString()
-        && item.toString().length === 10
-      ) {
+      const stringItem = item.toString();
+      if (stringItem && checkNumbersOnlyAndLength.test(stringItem)) {
         if (this.timezone) {
-          xItem = this.moment(item, "X");
+          xItem = this.moment(stringItem, stringItem.length === 10 ? "X" : "x");
         } else {
-          xItem = momentObj.utc(item, "X");
+          xItem = momentObj.utc(stringItem, stringItem.length === 10 ? "X" : "x");
         }
       } else if (item) {
         if (this.timezone) {

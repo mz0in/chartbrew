@@ -168,9 +168,20 @@ class ConnectionController {
       });
   }
 
-  create(data) {
+  async create(data) {
+    const dataToSave = { ...data };
+
     if (!data.type) data.type = "mongodb"; // eslint-disable-line
-    return db.Connection.create(data)
+    if (data.type === "mysql" || data.type === "postgres") {
+      try {
+        const testData = await this.testMysql(data);
+        dataToSave.schema = testData.schema;
+      } catch (e) {
+        //
+      }
+    }
+
+    return db.Connection.create(dataToSave)
       .then((connection) => {
         return connection;
       })
@@ -346,13 +357,33 @@ class ConnectionController {
       });
   }
 
+  async getSchema(dbConnection) {
+    const tables = await dbConnection.getQueryInterface().showAllTables();
+    const schemaPromises = tables.map((table) => {
+      return dbConnection.getQueryInterface().describeTable(table)
+        .then((description) => ({ table, description }));
+    });
+
+    const schemas = await Promise.all(schemaPromises);
+    const schema = schemas.reduce((acc, { table, description }) => {
+      acc[table] = description;
+      return acc;
+    }, {});
+
+    return {
+      tables,
+      description: schema,
+    };
+  }
+
   async testMysql(data) {
     try {
       const sqlDb = await externalDbConnection(data);
-      const tables = await sqlDb.getQueryInterface().showAllTables();
+      const schema = await this.getSchema(sqlDb);
+
       return Promise.resolve({
         success: true,
-        tables,
+        schema
       });
     } catch (err) {
       return Promise.reject(err.message || err);
@@ -621,8 +652,12 @@ class ConnectionController {
     }
 
     return this.findById(id)
-      .then((connection) => {
-        return externalDbConnection(connection);
+      .then(async (connection) => {
+        const dbConnection = await externalDbConnection(connection);
+        const schema = await this.getSchema(dbConnection);
+        db.Connection.update({ schema }, { where: { id } });
+
+        return dbConnection;
       })
       .then((dbConnection) => {
         return dbConnection.query(dataRequest.query, { type: Sequelize.QueryTypes.SELECT });
@@ -978,7 +1013,12 @@ class ConnectionController {
       }
     }
 
-    if (dataRequest.route.indexOf("customers") === 0) {
+    let cioRoute = "customers";
+    if (dataRequest?.route?.indexOf("campaigns") === 0) {
+      cioRoute = "campaigns";
+    }
+
+    if (cioRoute === "customers") {
       return CustomerioConnection.getCustomers(connection, dataRequest)
         .then(async (responseData) => {
           // cache the data for later use
@@ -997,7 +1037,7 @@ class ConnectionController {
         .catch((err) => {
           return new Promise((resolve, reject) => reject(err));
         });
-    } else if (dataRequest.route.indexOf("campaigns") === 0) {
+    } else if (cioRoute === "campaigns") {
       return CustomerioConnection.getCampaignMetrics(connection, dataRequest)
         .then(async (responseData) => {
           // cache the data for later use

@@ -11,7 +11,7 @@ import Text from "../../../components/Text";
 import Row from "../../../components/Row";
 import connectionImages from "../../../config/connectionImages";
 import { getDatasets, selectDatasetsNoDrafts } from "../../../slices/dataset";
-import useThemeDetector from "../../../modules/useThemeDetector";
+import { useTheme } from "../../../modules/ThemeContext";
 import ChartDatasetConfig from "./ChartDatasetConfig";
 import { chartColors } from "../../../config/colors";
 import { selectTeam } from "../../../slices/team";
@@ -32,7 +32,7 @@ function ChartDatasets(props) {
 
   const dispatch = useDispatch();
   const params = useParams();
-  const isDark = useThemeDetector();
+  const { isDark } = useTheme();
   const team = useSelector(selectTeam);
   const navigate = useNavigate();
 
@@ -116,7 +116,7 @@ function ChartDatasets(props) {
       <Row align={"center"} className={"justify-between"}>
         <Text size="h4">Datasets</Text>
         <div className="flex flex-row gap-1 items-center">
-          {addMode && canAccess("teamAdmin", user.id, team?.TeamRoles) && (
+          {canAccess("teamAdmin", user.id, team?.TeamRoles) && (
             <Button
               size="sm"
               color="primary"
@@ -125,16 +125,19 @@ function ChartDatasets(props) {
               Create dataset
             </Button>
           )}
-          <Button
-            isIconOnly
-            variant="faded"
-            size="sm"
-            onClick={() => setAddMode(!addMode)}
-            className="chart-cdc-add"
-          >
-            {!addMode && (<LuPlus />)}
-            {addMode && (<LuMinus />)}
-          </Button>
+
+          {datasets.length > 0 && chart?.ChartDatasetConfigs.length > 0 && (
+            <Button
+              isIconOnly
+              variant="faded"
+              size="sm"
+              onClick={() => setAddMode(!addMode)}
+              className="chart-cdc-add"
+            >
+              {!addMode && <LuPlus />}
+              {addMode && <LuMinus />}
+            </Button>
+          )}
         </div>
       </Row>
       <Spacer y={4} />
@@ -174,6 +177,10 @@ function ChartDatasets(props) {
             <Text size="sm">{`${_filteredDatasets().length} datasets found`}</Text>
           </div>
           <Spacer y={4} />
+
+          {datasets.length === 0 && (
+            <div>No datasets available.</div>
+          )}
 
           <ScrollShadow className="max-h-[500px] w-full">
             {datasets.length > 0 && _filteredDatasets().map((dataset, index) => (

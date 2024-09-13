@@ -1,4 +1,4 @@
-import React, { useEffect, lazy, Suspense } from "react";
+import React, { useEffect, lazy, Suspense, useRef } from "react";
 import PropTypes from "prop-types";
 import { connect, useDispatch, useSelector } from "react-redux";
 import { Route, Routes, useLocation, useNavigate } from "react-router";
@@ -10,10 +10,11 @@ import UserDashboard from "./UserDashboard/UserDashboard";
 
 import {
   relog, areThereAnyUsers,
+  selectUser,
 } from "../slices/user";
-import { getTeams, selectTeam } from "../slices/team";
+import { getTeams, saveActiveTeam, selectTeam, selectTeams } from "../slices/team";
 import { cleanErrors as cleanErrorsAction } from "../actions/error";
-import useThemeDetector from "../modules/useThemeDetector";
+import { useTheme } from "../modules/ThemeContext";
 import { IconContext } from "react-icons";
 import TeamMembers from "./TeamMembers/TeamMembers";
 import TeamSettings from "./TeamSettings";
@@ -27,6 +28,7 @@ import Dataset from "./Dataset/Dataset";
 import ConnectionWizard from "./Connections/ConnectionWizard";
 import LoadingScreen from "../components/LoadingScreen";
 import Variables from "./Variables/Variables";
+import { Toaster } from "react-hot-toast";
 
 const ProjectBoard = lazy(() => import("./ProjectBoard/ProjectBoard"));
 const Signup = lazy(() => import("./Signup"));
@@ -68,13 +70,26 @@ function authenticatePage() {
 function Main(props) {
   const { cleanErrors } = props;
 
+  const user = useSelector(selectUser);
   const team = useSelector(selectTeam);
+  const teams = useSelector(selectTeams);
+  const teamsRef = useRef(null);
 
-  const isDark = useThemeDetector();
+  const { isDark } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { pathname } = useLocation();
+
+  useEffect(() => {
+    if (isDark) {
+      document.body.classList.add("dark");
+      document.body.classList.remove("light");
+    } else {
+      document.body.classList.add("light");
+      document.body.classList.remove("dark");
+    }
+  }, [isDark]);
 
   useEffect(() => {
     cleanErrors();
@@ -103,6 +118,22 @@ function Main(props) {
         });
     }
   }, []);
+
+  useEffect(() => {
+    if (teams && teams.length > 0 && !teamsRef.current) {
+      teamsRef.current = true;
+      let selectedTeam = teams.find((t) => t.TeamRoles.find((tr) => tr.role === "teamOwner" && tr.user_id === user.id));
+
+      const storageActiveTeam = window.localStorage.getItem("__cb_active_team");
+      if (storageActiveTeam) {
+        const storageTeam = teams.find((t) => `${t.id}` === `${storageActiveTeam}`);
+        if (storageTeam) selectedTeam = storageTeam;
+      }
+
+      if (!selectedTeam) return;
+      dispatch(saveActiveTeam(selectedTeam));
+    }
+  }, [teams]);
 
   return (
     <IconContext.Provider value={{ className: "react-icons", size: 20, style: { opacity: 0.8 } }}>
@@ -247,6 +278,18 @@ function Main(props) {
           </Suspense>
         </div>
       </div>
+      <Toaster
+        position="top-center"
+        reverseOrder={false}
+        toastOptions={{
+          duration: 2500,
+          style: {
+            borderRadius: "8px",
+            background: isDark ? "#333" : "#fff",
+            color: isDark ? "#fff" : "#000",
+          },
+        }}
+      />
     </IconContext.Provider>
   );
 }

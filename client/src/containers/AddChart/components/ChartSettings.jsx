@@ -360,9 +360,10 @@ function ChartSettings(props) {
               <Text>{timeIntervalOptions.find((option) => option.value === timeInterval).text}</Text>
             )}
             className="chart-settings-interval"
+            aria-label="Select a time interval"
           >
             {timeIntervalOptions.map((option) => (
-              <SelectItem key={option.value}>
+              <SelectItem key={option.value} textValue={option.text}>
                 {option.text}
               </SelectItem>
             ))}
@@ -543,9 +544,10 @@ function ChartSettings(props) {
             renderValue={() => (
               <Text>{xLabelOptions.find((option) => option.value === ticksSelection).text}</Text>
             )}
+            aria-label="Select the number of labels"
           >
             {xLabelOptions.map((option) => (
-              <SelectItem key={option.value}>
+              <SelectItem key={option.value} textValue={option.text}>
                 {option.text}
               </SelectItem>
             ))}

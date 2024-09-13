@@ -14,7 +14,7 @@ import "ace-builds/src-min-noconflict/theme-one_dark";
 import Container from "../../../components/Container";
 import Row from "../../../components/Row";
 import Text from "../../../components/Text";
-import useThemeDetector from "../../../modules/useThemeDetector";
+import { useTheme } from "../../../modules/ThemeContext";
 import { LuCheckCircle2, LuChevronRight, LuExternalLink, LuUpload } from "react-icons/lu";
 import { testRequest, testRequestWithFiles } from "../../../slices/connection";
 
@@ -66,7 +66,7 @@ function PostgresConnectionForm(props) {
     sslKey: null,
   });
 
-  const isDark = useThemeDetector();
+  const { isDark } = useTheme();
   const dispatch = useDispatch();
   const params = useParams();
 
@@ -406,12 +406,13 @@ function PostgresConnectionForm(props) {
                 size="sm"
                 selectionMode="single"
                 disallowEmptySelection
+                aria-label="Select an SSL mode"
               >
-                <SelectItem key="require">{"Require"}</SelectItem>
-                <SelectItem key="disable">{"Disable"}</SelectItem>
-                <SelectItem key="prefer">{"Prefer"}</SelectItem>
-                <SelectItem key="verify-ca">{"Verify CA"}</SelectItem>
-                <SelectItem key="verify-full">{"Verify Full"}</SelectItem>
+                <SelectItem key="require" textValue="Require">{"Require"}</SelectItem>
+                <SelectItem key="disable" textValue="Disable">{"Disable"}</SelectItem>
+                <SelectItem key="prefer" textValue="Prefer">{"Prefer"}</SelectItem>
+                <SelectItem key="verify-ca" textValue="Verify CA">{"Verify CA"}</SelectItem>
+                <SelectItem key="verify-full" textValue="Verify Full">{"Verify Full"}</SelectItem>
               </Select>
             </Row>
             <Spacer y={2} />

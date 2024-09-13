@@ -14,7 +14,6 @@ import {
   LuBarChart, LuCalendarDays, LuChevronDown, LuDatabase, LuInfo, LuLayoutGrid, LuMoreHorizontal, LuPencilLine,
   LuPlug, LuPlus, LuSearch, LuSettings, LuTable, LuTags, LuTrash, LuUsers2,
 } from "react-icons/lu";
-import { Flip, ToastContainer } from "react-toastify";
 
 import { relog } from "../../slices/user";
 import { cleanErrors as cleanErrorsAction } from "../../actions/error";
@@ -33,7 +32,7 @@ import Container from "../../components/Container";
 import Row from "../../components/Row";
 import Text from "../../components/Text";
 import connectionImages from "../../config/connectionImages";
-import useThemeDetector from "../../modules/useThemeDetector";
+import { useTheme } from "../../modules/ThemeContext";
 import {
   selectTeam, selectTeams, getTeams, saveActiveTeam, getTeamMembers, selectTeamMembers,
 } from "../../slices/team";
@@ -88,7 +87,7 @@ function UserDashboard(props) {
   const teamsRef = useRef(null);
   const initRef = useRef(null);
   const { height } = useWindowSize();
-  const isDark = useThemeDetector();
+  const { isDark } = useTheme();
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
@@ -441,7 +440,7 @@ function UserDashboard(props) {
                 justify={"space-between"}
               >
                 <Row justify="flex-start" align="center" className={"w-full"}>
-                  <Dropdown>
+                  <Dropdown aria-label="Select a team option">
                     <DropdownTrigger>
                       <Button
                         startContent={<LuUsers2 size={28} />}
@@ -494,7 +493,7 @@ function UserDashboard(props) {
                   >
                     <span className="text-lg">Dashboards</span>
                   </ListboxItem>
-                  {_canAccess("projectAdmin", team.TeamRoles) && (
+                  {_canAccess("teamAdmin", team.TeamRoles) && (
                     <ListboxItem
                       key="connections"
                       startContent={<LuPlug size={24} />}
@@ -505,7 +504,7 @@ function UserDashboard(props) {
                       <span className="text-lg">Connections</span>
                     </ListboxItem>
                   )}
-                  {_canAccess("projectAdmin", team.TeamRoles) && (
+                  {_canAccess("projectEditor", team.TeamRoles) && (
                     <ListboxItem
                       key="datasets"
                       showDivider={_canAccess("teamAdmin", team.TeamRoles)}
@@ -609,6 +608,7 @@ function UserDashboard(props) {
                                     onClick={() => _onEditProject(project)}
                                     startContent={<LuPencilLine />}
                                     showDivider
+                                    textValue="Rename"
                                   >
                                     Rename
                                   </DropdownItem>
@@ -616,6 +616,7 @@ function UserDashboard(props) {
                                     onClick={() => _onDeleteProject(project)}
                                     startContent={<LuTrash />}
                                     color="danger"
+                                    textValue="Delete"
                                   >
                                     Delete
                                   </DropdownItem>
@@ -763,7 +764,7 @@ function UserDashboard(props) {
                       )}
                     </Table>
                   )}
-                  {projects && projects.length === 0 && !_canAccess("projectAdmin", team.TeamRoles) && (
+                  {projects && projects.length === 0 && !_canAccess("projectEditor", team.TeamRoles) && (
                     <Container>
                     <Text size="h3">
                         {"No project over here"}
@@ -796,7 +797,7 @@ function UserDashboard(props) {
                     />
                   </Row>
                   <Spacer y={4} />
-                  <Table shadow="none" isStriped className="border-1 border-solid border-content3 rounded-xl">
+                  <Table shadow="none" isStriped className="border-1 border-solid border-content3 rounded-xl" aria-label="Connection list">
                     <TableHeader>
                       <TableColumn key="name">Connection</TableColumn>
                       <TableColumn key="tags" className="tutorial-tags">
@@ -867,7 +868,7 @@ function UserDashboard(props) {
                           <TableCell key="actions">
                             {_canAccess("teamAdmin", team.TeamRoles) && (
                               <Row justify="flex-end" align="center">
-                                <Dropdown>
+                                <Dropdown aria-label="Select a connection option">
                                   <DropdownTrigger>
                                     <Button
                                       isIconOnly
@@ -941,7 +942,7 @@ function UserDashboard(props) {
                     </Switch>
                   </Row>
                   <Spacer y={4} />
-                  <Table shadow="none" isStriped className="border-1 border-solid border-content3 rounded-xl">
+                  <Table shadow="none" isStriped className="border-1 border-solid border-content3 rounded-xl" aria-label="Dataset list">
                     <TableHeader>
                       <TableColumn key="name">Dataset name</TableColumn>
                       <TableColumn key="connections" textValue="Connections" align="center" justify="center">
@@ -1031,7 +1032,7 @@ function UserDashboard(props) {
                           </TableCell>
                           <TableCell key="actions">
                             <Row justify="flex-end" align="center">
-                              <Dropdown>
+                              <Dropdown aria-label="Select a dataset option">
                                 <DropdownTrigger>
                                   <Button
                                     isIconOnly
@@ -1049,6 +1050,7 @@ function UserDashboard(props) {
                                     onClick={() => navigate(`/${team.id}/dataset/${dataset.id}`)}
                                     startContent={<LuPencilLine />}
                                     key="dataset"
+                                    textValue="Edit dataset"
                                   >
                                     Edit dataset
                                   </DropdownItem>
@@ -1057,6 +1059,7 @@ function UserDashboard(props) {
                                     onClick={() => setDatasetToEdit(dataset)}
                                     startContent={<LuTags />}
                                     showDivider
+                                    textValue="Edit tags"
                                   >
                                     Edit tags
                                   </DropdownItem>
@@ -1065,6 +1068,7 @@ function UserDashboard(props) {
                                     onClick={() => _onPressDeleteDataset(dataset)}
                                     startContent={<LuTrash />}
                                     color="danger"
+                                    textValue="Delete"
                                   >
                                     Delete
                                   </DropdownItem>
@@ -1161,7 +1165,7 @@ function UserDashboard(props) {
               </div>
               {fetchingRelatedCharts && (
                 <div className="flex flex-row items-center gap-1">
-                  <CircularProgress size="sm" />
+                  <CircularProgress size="sm" aria-label="Checking related charts" />
                   <Text className={"italic"}>Checking related charts...</Text>
                 </div>
               )}
@@ -1396,20 +1400,6 @@ function UserDashboard(props) {
           </>
         )}
       </div>
-
-      <ToastContainer
-        position="bottom-center"
-        autoClose={1500}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnVisibilityChange
-        draggable
-        pauseOnHover
-        transition={Flip}
-        theme={isDark ? "dark" : "light"}
-      />
     </div>
   );
 }

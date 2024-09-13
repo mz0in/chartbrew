@@ -110,8 +110,8 @@ function DatasetAlerts(props) {
       return teamMembers;
     }
 
-    if (userRole.role === "projectAdmin") {
-      return teamMembers.filter((tm) => tm.TeamRoles?.find((tr) => tr.projects.includes(parseInt(projectId, 10)) && (tr.role === "projectAdmin" || tr.role === "projectViewer")));
+    if (userRole.role === "projectEditor") {
+      return teamMembers.filter((tm) => tm.TeamRoles?.find((tr) => tr.projects.includes(parseInt(projectId, 10)) && (tr.role === "projectAdmin" || tr.role === "projectEditor" || tr.role === "projectViewer")));
     }
 
     return [{ ...user }];
@@ -360,9 +360,10 @@ function DatasetAlerts(props) {
                   selectedKeys={[newAlert.type]}
                   onSelectionChange={(keys) => setNewAlert({ ...newAlert, type: keys.currentKey })}
                   selectionMode="single"
+                  aria-label="Select an alert type"
                 >
                   {ruleTypes.map((rule) => (
-                    <SelectItem key={rule.value}>
+                    <SelectItem key={rule.value} textValue={rule.label}>
                       {rule.label}
                     </SelectItem>
                   ))}
@@ -549,9 +550,10 @@ function DatasetAlerts(props) {
                       selectedKeys={[timeoutUnit]}
                       onSelectionChange={(keys) => setTimeoutUnit(keys.currentKey)}
                       selectionMode="single"
+                      aria-label="Select a time unit"
                     >
                       {timePeriods.map((period) => (
-                        <SelectItem key={period.value}>
+                        <SelectItem key={period.value} textValue={period.label}>
                           {period.label}
                         </SelectItem>
                       ))}

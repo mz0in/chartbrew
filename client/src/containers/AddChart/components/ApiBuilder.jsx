@@ -7,7 +7,7 @@ import {
 } from "@nextui-org/react";
 import AceEditor from "react-ace";
 import { v4 as uuid } from "uuid";
-import { toast } from "react-toastify";
+import toast from "react-hot-toast";
 import { useParams } from "react-router";
 import { LuCalendarDays, LuInfo, LuPlay, LuPlus, LuPlusCircle, LuTrash, LuXCircle } from "react-icons/lu";
 import { endOfDay, startOfDay, sub } from "date-fns";
@@ -29,7 +29,7 @@ import {
 import Container from "../../../components/Container";
 import Row from "../../../components/Row";
 import Text from "../../../components/Text";
-import useThemeDetector from "../../../modules/useThemeDetector";
+import { useTheme } from "../../../modules/ThemeContext";
 
 const methods = [{
   key: 1,
@@ -90,7 +90,7 @@ function ApiBuilder(props) {
     },
   });
 
-  const isDark = useThemeDetector();
+  const { isDark } = useTheme();
   const params = useParams();
   const dispatch = useDispatch();
   const initRef = useRef(null);
@@ -655,9 +655,10 @@ function ApiBuilder(props) {
               selectedKeys={[apiRequest.method]}
               selectionMode="single"
               labelPlacement="ouside"
+              aria-label="Select a method"
             >
               {methods.map((method) => (
-                <SelectItem key={method.value}>
+                <SelectItem key={method.value} textValue={method.text}>
                   {method.text}
                 </SelectItem>
               ))}
